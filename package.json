@@ -1,0 +1,19 @@
+{
+  "name": "scriptforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-driven userscript manager with static analysis gate",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "lint:generated": "node scripts/lint-generated.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "package": "npm run build && npm run icons && node scripts/package-extension.mjs"
+  },
+  "devDependencies": {
+    "acorn": "^8.14.1",
+    "acorn-walk": "^8.3.4",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.21.0"
+  }
+}

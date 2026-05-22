@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ScriptForge</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>ScriptForge</h1>
+    <nav class="tabs">
+      <button type="button" class="tab active" data-view="list">一覧</button>
+      <button type="button" class="tab" data-view="chat">作成</button>
+      <button type="button" class="tab" data-view="settings">設定</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-list" class="view active">
+      <div class="toolbar">
+        <button type="button" id="btn-import-file" class="btn secondary">インポート</button>
+        <button type="button" id="btn-import-url" class="btn secondary">URLから</button>
+        <button type="button" id="btn-open-sidepanel" class="btn secondary">サイドパネル</button>
+      </div>
+      <ul id="script-list" class="script-list"></ul>
+      <p id="list-empty" class="empty hidden">スクリプトがありません。「作成」から追加してください。</p>
+    </section>
+
+    <section id="view-chat" class="view hidden">
+      <p id="page-context-hint" class="meta" style="margin-bottom:8px"></p>
+      <div id="chat-messages" class="chat-messages"></div>
+      <form id="chat-form" class="chat-form">
+        <textarea id="chat-input" rows="3" placeholder="例: GitHubのサイドバーを暗くして"></textarea>
+        <button type="submit" class="btn primary" id="btn-send">生成</button>
+      </form>
+      <p id="chat-status" class="status"></p>
+    </section>
+
+    <section id="view-settings" class="view hidden">
+      <p class="meta" style="margin-bottom:10px">OpenAI 互換 API（/v1/chat/completions）に対応しています。</p>
+      <div id="settings-presets" class="preset-row"></div>
+      <label class="field">
+        <span>API ベース URL</span>
+        <input type="url" id="api-base-url" autocomplete="off" placeholder="https://api.openai.com/v1" />
+      </label>
+      <label class="field">
+        <span>API キー</span>
+        <input type="password" id="api-key" autocomplete="off" placeholder="sk-...（Ollama 等ローカルは空可）" />
+      </label>
+      <label class="field">
+        <span>モデル名</span>
+        <input type="text" id="api-model" autocomplete="off" placeholder="gpt-4o-mini" />
+      </label>
+      <fieldset class="field page-context-field">
+        <span>AI に渡すページ情報（常に送信）</span>
+        <label class="radio-row">
+          <input type="radio" name="page-context-mode" value="dom" checked />
+          DOM ツリー（タグ・id・class の構造、推奨・軽量）
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="page-context-mode" value="html" />
+          HTML 全文（outerHTML・API送信時は約45KBまで）
+        </label>
+      </fieldset>
+      <div class="toolbar">
+        <button type="button" id="btn-save-settings" class="btn primary">保存</button>
+        <button type="button" id="btn-test-api" class="btn secondary">接続テスト</button>
+      </div>
+      <p id="settings-status" class="status"></p>
+    </section>
+  </main>
+
+  <input type="file" id="import-file" accept=".user.js,.js" hidden />
+
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <p id="modal-message"></p>
+      <div id="modal-actions" class="modal-actions"></div>
+    </div>
+  </div>
+
+  <div id="edit-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal modal-wide">
+      <h3 id="edit-title">スクリプトを編集</h3>
+      <textarea id="edit-code" spellcheck="false"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="edit-cancel">キャンセル</button>
+        <button type="button" class="btn primary" id="edit-save">解析して保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="prompt-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <div class="modal">
+      <p id="prompt-message"></p>
+      <input type="text" id="prompt-input" />
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="prompt-cancel">キャンセル</button>
+        <button type="button" class="btn primary" id="prompt-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

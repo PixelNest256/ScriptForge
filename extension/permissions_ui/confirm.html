@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>権限確認 — ScriptForge</title>
+  <link rel="stylesheet" href="../popup/styles.css" />
+  <style>
+    body { width: 460px; min-height: 500px; padding: 16px; }
+    .perm-list { margin: 12px 0; }
+    .perm-item { padding: 10px; background: var(--surface); border-radius: var(--radius); margin-bottom: 8px; border: 1px solid var(--border); }
+    .perm-item h4 { font-size: 13px; margin-bottom: 4px; }
+    .not-detected { margin-top: 16px; }
+    .not-detected li { color: var(--ok); font-size: 12px; margin: 4px 0; }
+    .actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+    .warning-title { font-size: 15px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h2 class="warning-title">このスクリプトの権限を確認してください</h2>
+  <p id="script-info" class="meta"></p>
+
+  <section id="section-detected">
+    <h3>検出された権限</h3>
+    <div id="perm-detected" class="perm-list"></div>
+  </section>
+
+  <section class="not-detected">
+    <h3>検出されなかった権限</h3>
+    <ul id="perm-not-detected"></ul>
+  </section>
+
+  <div class="actions">
+    <button type="button" id="btn-reject" class="btn secondary">拒否</button>
+    <button type="button" id="btn-approve" class="btn primary">承認して保存</button>
+  </div>
+
+  <p id="confirm-status" class="status"></p>
+  <script type="module" src="confirm.js"></script>
+</body>
+</html>
