@@ -7,12 +7,14 @@ const entries = [
   { in: 'src/background/service_worker.js', out: 'extension/background/service_worker.js' },
   { in: 'src/popup/popup.js', out: 'extension/popup/popup.js' },
   { in: 'src/permissions_ui/confirm.js', out: 'extension/permissions_ui/confirm.js' },
+  { in: 'src/settings/settings.js', out: 'extension/settings/settings.js' },
   { in: 'src/sidepanel/sidepanel.js', out: 'extension/sidepanel/sidepanel.js' },
 ];
 
 mkdirSync('extension/background', { recursive: true });
 mkdirSync('extension/popup', { recursive: true });
 mkdirSync('extension/permissions_ui', { recursive: true });
+mkdirSync('extension/settings', { recursive: true });
 mkdirSync('extension/sidepanel', { recursive: true });
 
 const common = {

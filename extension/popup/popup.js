@@ -49,38 +49,6 @@ function parseUserscriptMeta(code) {
 }
 
 // src/shared/llm.js
-var LLM_PRESETS = [
-  {
-    id: "openai",
-    label: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini"
-  },
-  {
-    id: "openrouter",
-    label: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    model: "openai/gpt-4o-mini"
-  },
-  {
-    id: "ollama",
-    label: "Ollama\uFF08\u30ED\u30FC\u30AB\u30EB\uFF09",
-    baseUrl: "http://localhost:11434/v1",
-    model: "llama3.2"
-  },
-  {
-    id: "lmstudio",
-    label: "LM Studio\uFF08\u30ED\u30FC\u30AB\u30EB\uFF09",
-    baseUrl: "http://localhost:1234/v1",
-    model: "local-model"
-  },
-  {
-    id: "groq",
-    label: "Groq",
-    baseUrl: "https://api.groq.com/openai/v1",
-    model: "llama-3.3-70b-versatile"
-  }
-];
 var DEFAULT_LLM = {
   llmBaseUrl: "https://api.openai.com/v1",
   llmApiKey: "",
@@ -95,14 +63,6 @@ function normalizeLlmSettings(settings = {}) {
     llmApiKey: settings.llmApiKey || settings.anthropicApiKey || "",
     llmModel: settings.llmModel || settings.anthropicModel || DEFAULT_LLM.llmModel,
     pageContextMode
-  };
-}
-function settingsForStorage(form) {
-  return {
-    llmBaseUrl: form.baseUrl.replace(/\/+$/, ""),
-    llmApiKey: form.apiKey,
-    llmModel: form.model.trim(),
-    pageContextMode: form.pageContextMode === "html" ? "html" : "dom"
   };
 }
 function chatCompletionsUrl(baseUrl) {
@@ -149,24 +109,24 @@ function enrichApiError(message, status, body) {
   const m = String(message || "");
   const hints = [];
   if (/provider returned error/i.test(m)) {
-    hints.push("\u4E0A\u6D41\u30D7\u30ED\u30D0\u30A4\u30C0\u304C\u30A8\u30E9\u30FC\u3092\u8FD4\u3057\u307E\u3057\u305F\uFF08\u30E2\u30C7\u30EB\u969C\u5BB3\u30FB\u4E00\u6642\u7684\u306A\u904E\u8CA0\u8377\u306E\u3053\u3068\u304C\u3042\u308A\u307E\u3059\uFF09");
-    hints.push("\u8A2D\u5B9A\u306E\u300CDOM\u30C4\u30EA\u30FC\u300D\u30E2\u30FC\u30C9\u3092\u8A66\u3059\uFF08HTML\u5168\u6587\u3088\u308A\u8EFD\u91CF\uFF09");
-    hints.push("\u5225\u306E\u30E2\u30C7\u30EB\u540D\u306B\u5909\u66F4\uFF08\u4F8B: OpenRouter \u306A\u3089 openai/gpt-4o-mini\uFF09");
+    hints.push("Upstream provider returned an error (model outage or temporary overload)");
+    hints.push('Try "DOM Tree" mode in settings (lighter than full HTML)');
+    hints.push("Try a different model name (e.g. openai/gpt-4o-mini on OpenRouter)");
   }
   if (/context|token|length|too large|maximum/i.test(m)) {
-    hints.push("\u30DA\u30FC\u30B8\u60C5\u5831\u304C\u5927\u304D\u3059\u304E\u307E\u3059\u3002\u8A2D\u5B9A\u3067 DOM \u30C4\u30EA\u30FC\u3092\u9078\u3076\u304B\u3001\u8981\u7D20\u306E\u5C11\u306A\u3044\u30DA\u30FC\u30B8\u3067\u8A66\u3057\u3066\u304F\u3060\u3055\u3044");
+    hints.push("Page context is too large. Select DOM Tree in settings or try on a simpler page");
   }
   if (status === 401 || /auth|api.?key|unauthorized/i.test(m)) {
-    hints.push("API \u30AD\u30FC\u304C\u7121\u52B9\u307E\u305F\u306F\u672A\u8A2D\u5B9A\u3067\u3059");
+    hints.push("API key is invalid or not set");
   }
   if (status === 404 || /model.*not found|does not exist/i.test(m)) {
-    hints.push("\u30E2\u30C7\u30EB\u540D\u304C\u5B58\u5728\u3057\u307E\u305B\u3093\u3002\u30D7\u30ED\u30D0\u30A4\u30C0\u306E\u30C9\u30AD\u30E5\u30E1\u30F3\u30C8\u3067\u6B63\u3057\u3044 ID \u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044");
+    hints.push("Model name does not exist. Check the provider documentation for the correct ID");
   }
   if (hints.length === 0) return m;
   return `${m}
 
-\u3010\u5BFE\u51E6\u306E\u30D2\u30F3\u30C8\u3011
-${hints.map((h) => `\u30FB${h}`).join("\n")}`;
+[Troubleshooting hints]
+${hints.map((h) => `\u2022 ${h}`).join("\n")}`;
 }
 function extractMessageContent(data) {
   const choice = data?.choices?.[0];
@@ -174,11 +134,11 @@ function extractMessageContent(data) {
   if (choice.error) {
     const e = choice.error;
     throw new Error(
-      typeof e === "string" ? e : e.message || "\u30E2\u30C7\u30EB\u304C\u30A8\u30E9\u30FC\u3092\u8FD4\u3057\u307E\u3057\u305F"
+      typeof e === "string" ? e : e.message || "Model returned an error"
     );
   }
   if (choice.finish_reason === "error") {
-    throw new Error("\u30E2\u30C7\u30EB\u304C\u30A8\u30E9\u30FC\u7D42\u4E86\u3057\u307E\u3057\u305F\uFF08finish_reason: error\uFF09");
+    throw new Error("Model finished with error (finish_reason: error)");
   }
   const content = choice.message?.content;
   if (typeof content === "string") return content;
@@ -190,7 +150,7 @@ function extractMessageContent(data) {
 async function chatCompletion({ systemPrompt, userPrompt, settings }) {
   const { llmBaseUrl, llmApiKey, llmModel } = normalizeLlmSettings(settings);
   if (!llmModel?.trim()) {
-    throw new Error("\u30E2\u30C7\u30EB\u540D\u3092\u8A2D\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+    throw new Error("Please set a model name");
   }
   const url = chatCompletionsUrl(llmBaseUrl);
   const headers = buildProviderHeaders(llmBaseUrl, llmApiKey);
@@ -212,7 +172,7 @@ async function chatCompletion({ systemPrompt, userPrompt, settings }) {
     });
   } catch (netErr) {
     throw new Error(
-      `\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u30A8\u30E9\u30FC: ${netErr.message}\uFF08URL\u30FBCORS\u30FB\u30ED\u30FC\u30AB\u30EB API \u306E\u8D77\u52D5\u3092\u78BA\u8A8D\uFF09`
+      `Network error: ${netErr.message} (check URL, CORS, or local API status)`
     );
   }
   const rawText = await res.text();
@@ -221,7 +181,7 @@ async function chatCompletion({ systemPrompt, userPrompt, settings }) {
     data = rawText ? JSON.parse(rawText) : {};
   } catch {
     throw new Error(
-      `API \u304C JSON \u4EE5\u5916\u3092\u8FD4\u3057\u307E\u3057\u305F (${res.status}): ${rawText.slice(0, 200)}`
+      `API returned non-JSON (${res.status}): ${rawText.slice(0, 200)}`
     );
   }
   if (data.error) {
@@ -233,14 +193,100 @@ async function chatCompletion({ systemPrompt, userPrompt, settings }) {
   const text = extractMessageContent(data);
   if (!text?.trim()) {
     throw new Error(
-      "API \u304B\u3089\u7A7A\u306E\u5FDC\u7B54\u304C\u8FD4\u3055\u308C\u307E\u3057\u305F\u3002\u30E2\u30C7\u30EB\u540D\u30FB\u30B3\u30F3\u30C6\u30AD\u30B9\u30C8\u9577\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044"
+      "API returned an empty response. Check model name and context length"
     );
   }
   return text.trim();
 }
+async function chatCompletionStream({ systemPrompt, userPrompt, settings, onToken }) {
+  const { llmBaseUrl, llmApiKey, llmModel } = normalizeLlmSettings(settings);
+  if (!llmModel?.trim()) {
+    throw new Error("Please set a model name");
+  }
+  const url = chatCompletionsUrl(llmBaseUrl);
+  const headers = buildProviderHeaders(llmBaseUrl, llmApiKey);
+  const body = {
+    model: llmModel.trim(),
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    max_tokens: 4096,
+    temperature: 0.3,
+    stream: true
+  };
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+  } catch (netErr) {
+    throw new Error(
+      `Network error: ${netErr.message} (check URL, CORS, or local API status)`
+    );
+  }
+  if (!res.ok) {
+    const rawText = await res.text().catch(() => "");
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+    }
+    throw new Error(parseApiError(res.status, data));
+  }
+  let fullText = "";
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming not supported by this browser");
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let charsSinceYield = 0;
+  function extractDelta(parsed) {
+    return parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content ?? parsed.choices?.[0]?.text ?? null;
+  }
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let payload = trimmed;
+      if (payload.startsWith("data:")) {
+        payload = payload.slice(5).trim();
+      } else if (!payload.startsWith("{") && !payload.startsWith("[")) {
+        continue;
+      }
+      if (payload === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = extractDelta(parsed);
+        if (delta) {
+          fullText += delta;
+          try { onToken?.(delta); } catch {}
+          charsSinceYield += delta.length;
+          if (charsSinceYield > 5) {
+            charsSinceYield = 0;
+            await new Promise((r) => requestAnimationFrame(r));
+          }
+        }
+      } catch {
+      }
+    }
+  }
+  if (!fullText.trim()) {
+    throw new Error("API returned an empty response. Check model name and context length");
+  }
+  return fullText.trim();
+}
 function isRetryableApiError(err) {
   const m = String(err?.message || "");
-  return /provider returned error/i.test(m) || /context|token|length|too large|maximum/i.test(m) || /empty|空の応答/i.test(m);
+  return /provider returned error/i.test(m) || /context|token|length|too large|maximum/i.test(m) || /empty/i.test(m);
 }
 
 // src/shared/page-capture-fn.js
@@ -332,9 +378,9 @@ function isRestrictedUrl(url) {
 }
 async function captureActiveTabPageContext(mode) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error("\u30A2\u30AF\u30C6\u30A3\u30D6\u306A\u30BF\u30D6\u304C\u3042\u308A\u307E\u305B\u3093");
+  if (!tab?.id) throw new Error("No active tab");
   if (isRestrictedUrl(tab.url)) {
-    throw new Error("\u3053\u306E\u30DA\u30FC\u30B8\u3067\u306F HTML / DOM \u3092\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\uFF08\u30D6\u30E9\u30A6\u30B6\u5185\u90E8\u30DA\u30FC\u30B8\uFF09");
+    throw new Error("Cannot get HTML/DOM from this page (browser internal page)");
   }
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -342,7 +388,7 @@ async function captureActiveTabPageContext(mode) {
     args: [mode]
   });
   if (!result?.content) {
-    throw new Error("\u30DA\u30FC\u30B8\u306E\u53D6\u5F97\u306B\u5931\u6557\u3057\u307E\u3057\u305F");
+    throw new Error("Failed to get page content");
   }
   return result;
 }
@@ -402,10 +448,12 @@ Use the page snapshot above to choose accurate selectors (@match should use the 
 
 // src/popup/chat.js
 var SYSTEM_PROMPT = `You are a userscript generator for ScriptForge browser extension.
-Output ONLY a complete Tampermonkey-compatible userscript with NO markdown fences.
+Think step by step, then output a complete Tampermonkey-compatible userscript inside a single markdown code block (use \`\`\`javascript ... \`\`\`).
 
 Requirements:
-- Start with // ==UserScript== block containing @name, @description, @match (at least one), @version
+- First, explain your approach briefly in natural language (1-3 sentences).
+- Then output the userscript code inside \`\`\`javascript ... \`\`\` fences.
+- The script must start with // ==UserScript== block containing @name, @description, @match (at least one), @version
 - End metadata with // ==/UserScript==
 - Body must be an IIFE: (function () { 'use strict'; ... })();
 - NEVER use eval, new Function, dynamic import(), or string arguments to setTimeout/setInterval
@@ -414,21 +462,22 @@ Requirements:
 - Use selectors that match the provided page HTML or DOM snapshot
 - Add @generated-by and @generated-at in metadata (@generated-by should include the model name)
 - Write code in JavaScript only`;
-async function generateScript(prompt, settings) {
+async function generateScriptStream(prompt, settings, onToken) {
   const llm = normalizeLlmSettings(settings);
   const { pageContextMode } = normalizePageContextSettings(settings);
   if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
-    throw new Error("API\u30AD\u30FC\u304C\u8A2D\u5B9A\u3055\u308C\u3066\u3044\u307E\u305B\u3093\uFF08\u30ED\u30FC\u30AB\u30EB API \u306E\u5834\u5408\u306F\u7A7A\u3067\u3082\u53EF\uFF09");
+    throw new Error("API key not set (can be empty for local APIs)");
   }
   const pageContext = await captureActiveTabPageContext(pageContextMode);
   const limited = limitPageContextForApi(pageContext);
   let userPrompt = buildPromptWithPageContext(prompt, limited);
   let usedMinimal = false;
   try {
-    const text = await chatCompletion({
+    const text = await chatCompletionStream({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
-      settings
+      settings,
+      onToken
     });
     return finishGeneration(text, llm.llmModel, pageContext, limited);
   } catch (firstErr) {
@@ -441,6 +490,7 @@ async function generateScript(prompt, settings) {
         userPrompt,
         settings
       });
+      onToken?.(text);
       return finishGeneration(text, llm.llmModel, pageContext, smaller);
     } catch (secondErr) {
       if (!isRetryableApiError(secondErr)) throw secondErr;
@@ -451,6 +501,7 @@ async function generateScript(prompt, settings) {
         userPrompt,
         settings
       });
+      onToken?.(text);
       const result = finishGeneration(text, llm.llmModel, pageContext, pageContext);
       result.pageContext.minimalFallback = usedMinimal;
       return result;
@@ -494,15 +545,15 @@ function stripCodeFences(text) {
 async function analyzeAndOpenConfirm(code) {
   const result = await chrome.runtime.sendMessage({ type: MSG.ANALYZE_CODE, code });
   if (result.syntaxError) {
-    throw new Error(`\u69CB\u6587\u30A8\u30E9\u30FC: ${result.syntaxError}`);
+    throw new Error(`Syntax error: ${result.syntaxError}`);
   }
   if (result.blocked?.length) {
     const msgs = result.blocked.map((b) => b.message).join("\n");
-    throw new Error(`\u30D6\u30ED\u30C3\u30AF\u3055\u308C\u307E\u3057\u305F:
+    throw new Error(`Blocked:
 ${msgs}`);
   }
   if (result.lintErrors?.length) {
-    throw new Error(`Lint \u30A8\u30E9\u30FC:
+    throw new Error(`Lint errors:
 ${result.lintErrors.join("\n")}`);
   }
   const { meta } = parseUserscriptMeta(code);
@@ -525,6 +576,26 @@ ${result.lintErrors.join("\n")}`);
     height: 560
   });
   return result;
+}
+
+// src/popup/messaging.js
+function createMessenger() {
+  return function send2(type, payload = {}) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type, ...payload }, (res) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          reject(new Error(err.message));
+          return;
+        }
+        if (res?.error) {
+          reject(new Error(res.error));
+          return;
+        }
+        resolve(res ?? { ok: true });
+      });
+    });
+  };
 }
 
 // src/popup/modal.js
@@ -554,7 +625,7 @@ function showConfirm(message) {
     }
     msg.textContent = message;
     actions.innerHTML = `
-      <button type="button" class="btn secondary" data-modal="cancel">\u30AD\u30E3\u30F3\u30BB\u30EB</button>
+      <button type="button" class="btn secondary" data-modal="cancel">Cancel</button>
       <button type="button" class="btn danger" data-modal="ok">OK</button>
     `;
     overlay.classList.remove("hidden");
@@ -573,13 +644,13 @@ function showConfirm(message) {
     };
   });
 }
-function showEditDialog(code, title = "\u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u7DE8\u96C6") {
+function showEditDialog(code, title = "Edit Script") {
   return new Promise((resolve) => {
     const overlay = $("#edit-overlay");
     const textarea = $("#edit-code");
     const titleEl = $("#edit-title");
     if (!overlay || !textarea) {
-      const result = window.prompt("\u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u7DE8\u96C6:", code);
+      const result = window.prompt("Edit Script:", code);
       resolve(result);
       return;
     }
@@ -598,133 +669,15 @@ function showEditDialog(code, title = "\u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u7DE
     };
   });
 }
-function showPrompt(message, defaultValue = "") {
-  return new Promise((resolve) => {
-    const overlay = $("#prompt-overlay");
-    const input = $("#prompt-input");
-    const msg = $("#prompt-message");
-    if (!overlay || !input) {
-      resolve(window.prompt(message, defaultValue));
-      return;
-    }
-    msg.textContent = message;
-    input.value = defaultValue;
-    overlay.classList.remove("hidden");
-    input.focus();
-    const close = (result) => {
-      overlay.classList.add("hidden");
-      resolve(result);
-    };
-    $("#prompt-cancel").onclick = () => close(null);
-    $("#prompt-ok").onclick = () => close(input.value.trim() || null);
-    overlay.onclick = (e) => {
-      if (e.target === overlay) close(null);
-    };
-  });
-}
-
-// src/popup/settings-ui.js
-var $2 = (sel) => document.querySelector(sel);
-function renderSettingsPresets(container) {
-  container.innerHTML = "";
-  for (const preset of LLM_PRESETS) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn secondary preset-btn";
-    btn.textContent = preset.label;
-    btn.title = preset.baseUrl;
-    btn.addEventListener("click", () => applyPreset(preset));
-    container.appendChild(btn);
-  }
-}
-function applyPreset(preset) {
-  $2("#api-base-url").value = preset.baseUrl;
-  $2("#api-model").value = preset.model;
-}
-function loadSettingsForm(settings) {
-  const llm = normalizeLlmSettings(settings);
-  const page = normalizePageContextSettings(settings);
-  $2("#api-base-url").value = llm.llmBaseUrl;
-  $2("#api-key").value = llm.llmApiKey;
-  $2("#api-model").value = llm.llmModel;
-  const mode = page.pageContextMode;
-  const radio = document.querySelector(`input[name="page-context-mode"][value="${mode}"]`);
-  if (radio) radio.checked = true;
-}
-function readSettingsForm() {
-  const mode = document.querySelector('input[name="page-context-mode"]:checked')?.value || PAGE_CONTEXT_DOM;
-  return settingsForStorage({
-    baseUrl: $2("#api-base-url").value.trim() || "https://api.openai.com/v1",
-    apiKey: $2("#api-key").value.trim(),
-    model: $2("#api-model").value,
-    pageContextMode: mode
-  });
-}
-function initSettings(send2) {
-  const presetsEl = $2("#settings-presets");
-  if (presetsEl) renderSettingsPresets(presetsEl);
-  const saveBtn = $2("#btn-save-settings");
-  console.log("[ScriptForge] save button found:", !!saveBtn);
-  saveBtn?.addEventListener("click", async (e) => {
-    console.log("[ScriptForge] save button clicked");
-    e.preventDefault();
-    try {
-      const settings = readSettingsForm();
-      console.log("[ScriptForge] sending settings:", settings);
-      await send2(MSG.SAVE_SETTINGS, { settings });
-      console.log("[ScriptForge] settings saved successfully");
-      $2("#settings-status").textContent = "\u4FDD\u5B58\u3057\u307E\u3057\u305F";
-    } catch (err) {
-      console.error("[ScriptForge] save settings error:", err);
-      $2("#settings-status").textContent = `\u4FDD\u5B58\u5931\u6557: ${err.message}`;
-    }
-  });
-  $2("#btn-test-api")?.addEventListener("click", async () => {
-    const status = $2("#settings-status");
-    status.textContent = "\u63A5\u7D9A\u30C6\u30B9\u30C8\u4E2D...";
-    try {
-      const form = readSettingsForm();
-      await chatCompletion({
-        systemPrompt: "Reply with exactly: OK",
-        userPrompt: "ping",
-        settings: form
-      });
-      status.textContent = "\u63A5\u7D9A\u6210\u529F";
-    } catch (e) {
-      status.textContent = `\u63A5\u7D9A\u5931\u6557: ${e.message}`;
-      showToast(`\u63A5\u7D9A\u5931\u6557: ${e.message}`);
-    }
-  });
-}
-
-// src/popup/messaging.js
-function createMessenger() {
-  return function send2(type, payload = {}) {
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type, ...payload }, (res) => {
-        const err = chrome.runtime.lastError;
-        if (err) {
-          reject(new Error(err.message));
-          return;
-        }
-        if (res?.error) {
-          reject(new Error(res.error));
-          return;
-        }
-        resolve(res ?? { ok: true });
-      });
-    });
-  };
-}
 
 // src/popup/popup.js
-var $3 = (sel) => document.querySelector(sel);
+var $2 = (sel) => document.querySelector(sel);
 var $$ = (sel) => document.querySelectorAll(sel);
 var send = createMessenger();
 var scriptsCache = [];
 function showView(name) {
   $$(".view").forEach((v) => v.classList.add("hidden"));
-  $3(`#view-${name}`)?.classList.remove("hidden");
+  $2(`#view-${name}`)?.classList.remove("hidden");
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
 }
 function initTabs() {
@@ -736,24 +689,38 @@ function initTabs() {
   });
 }
 async function updatePageContextHint() {
-  const el = $3("#page-context-hint");
+  const el = $2("#page-context-hint");
   if (!el) return;
   try {
     const { settings } = await send(MSG.GET_SETTINGS);
     const { pageContextMode } = normalizePageContextSettings(settings);
-    const label = pageContextMode === "html" ? "HTML \u5168\u6587" : "DOM \u30C4\u30EA\u30FC";
+    const label = pageContextMode === "html" ? "Full HTML" : "DOM Tree";
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = tab?.url ? new URL(tab.url).hostname : "\uFF08\u30BF\u30D6\u306A\u3057\uFF09";
-    el.textContent = `\u751F\u6210\u6642\u306B\u73FE\u5728\u306E\u30BF\u30D6\u3078 ${label} \u3092\u9001\u4FE1\u3057\u307E\u3059 \u2014 ${url}`;
+    const url = tab?.url ? new URL(tab.url).hostname : "(no tab)";
+    el.textContent = `Will send ${label} from current tab on generate \u2014 ${url}`;
   } catch (e) {
-    el.textContent = `\u8A2D\u5B9A\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093: ${e.message}`;
+    el.textContent = `Could not load settings: ${e.message}`;
   }
 }
 function initScriptListDelegation() {
-  const list = $3("#script-list");
+  const list = $2("#script-list");
   if (!list || list.dataset.bound) return;
   list.dataset.bound = "1";
   list.addEventListener("click", async (e) => {
+    const header = e.target.closest('.script-header[data-action="toggle"]');
+    if (header && !e.target.closest(".toggle")) {
+      e.preventDefault();
+      const id2 = header.dataset.id;
+      if (id2) {
+        const details = document.getElementById(`details-${id2}`);
+        const collapseBtn = header.querySelector(".collapse-btn");
+        if (details) {
+          details.classList.toggle("expanded");
+          collapseBtn?.classList.toggle("expanded");
+        }
+      }
+      return;
+    }
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
     e.preventDefault();
@@ -772,37 +739,37 @@ function initScriptListDelegation() {
       const res = await send(MSG.TOGGLE_SCRIPT, { id: cb.dataset.id, enabled: cb.checked });
       if (res?.reloadHint) showReloadHint();
     } catch (err) {
-      showToast(`\u6709\u52B9\u5316\u306E\u5909\u66F4\u306B\u5931\u6557: ${err.message}`);
+      showToast(`Toggle failed: ${err.message}`);
       cb.checked = !cb.checked;
     }
   });
 }
 async function handleDelete(id, btn) {
-  const ok = await showConfirm("\u3053\u306E\u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F");
+  const ok = await showConfirm("Delete this script?");
   if (!ok) return;
   btn.disabled = true;
   try {
     await send(MSG.DELETE_SCRIPT, { id });
     await loadScripts();
-    showToast("\u524A\u9664\u3057\u307E\u3057\u305F", false);
+    showToast("Deleted", false);
   } catch (err) {
-    showToast(`\u524A\u9664\u306B\u5931\u6557: ${err.message}`);
+    showToast(`Delete failed: ${err.message}`);
     btn.disabled = false;
   }
 }
 async function handleEdit(id) {
   const s = scriptsCache.find((x) => x.id === id);
   if (!s) {
-    showToast("\u30B9\u30AF\u30EA\u30D7\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+    showToast("Script not found");
     return;
   }
-  const code = await showEditDialog(s.code, `${s.name || "\u7121\u984C"} \u3092\u7DE8\u96C6`);
+  const code = await showEditDialog(s.code, `Edit ${s.name || "Untitled"}`);
   if (code == null || code === s.code) return;
   try {
     await chrome.storage.local.set({ pendingEditId: id });
     await analyzeAndOpenConfirm(code);
   } catch (err) {
-    showToast(`\u7DE8\u96C6\u306E\u4FDD\u5B58\u306B\u5931\u6557: ${err.message}`);
+    showToast(`Edit save failed: ${err.message}`);
   }
 }
 async function handleExport(id) {
@@ -817,12 +784,12 @@ async function handleExport(id) {
     });
     setTimeout(() => URL.revokeObjectURL(url), 5e3);
   } catch (err) {
-    showToast(`\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8\u306B\u5931\u6557: ${err.message}`);
+    showToast(`Export failed: ${err.message}`);
   }
 }
 async function loadScripts() {
-  const list = $3("#script-list");
-  const empty = $3("#list-empty");
+  const list = $2("#script-list");
+  const empty = $2("#list-empty");
   if (!list) return;
   try {
     const { scripts } = await send(MSG.GET_SCRIPTS);
@@ -838,82 +805,160 @@ async function loadScripts() {
       li.className = "script-item";
       const matches = (s.matches || []).join(", ") || "\u2014";
       li.innerHTML = `
-        <h3>${escapeHtml(s.name || "\u7121\u984C")}</h3>
-        <p class="meta">${escapeHtml(matches)} \xB7 v${escapeHtml(s.version || "1.0")}</p>
-        <div class="actions">
+        <div class="script-header" data-action="toggle" data-id="${escapeAttr(s.id)}">
+          <button type="button" class="collapse-btn" data-id="${escapeAttr(s.id)}">
+            <svg class="v-icon" width="12" height="12" viewBox="0 0 12 12"><path d="M 1,3.5 L 6,8.5 L 11,3.5" /></svg>
+          </button>
+           <span class="script-name">${escapeHtml(s.name || "Untitled")}</span>
           <label class="toggle">
             <input type="checkbox" data-id="${escapeAttr(s.id)}" ${s.enabled ? "checked" : ""} />
-            \u6709\u52B9
+            <span class="slider"></span>
           </label>
-          <button type="button" class="btn secondary" data-action="export" data-id="${escapeAttr(s.id)}">\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8</button>
-          <button type="button" class="btn secondary" data-action="edit" data-id="${escapeAttr(s.id)}">\u7DE8\u96C6</button>
-          <button type="button" class="btn danger" data-action="delete" data-id="${escapeAttr(s.id)}">\u524A\u9664</button>
+        </div>
+        <div class="script-details" id="details-${escapeAttr(s.id)}">
+          <p class="meta">${escapeHtml(matches)} \xB7 v${escapeHtml(s.version || "1.0")}</p>
+          <div class="actions">
+            <button type="button" class="btn secondary" data-action="export" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+              Download
+            </button>
+            <button type="button" class="btn secondary" data-action="edit" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>
+              Edit
+            </button>
+            <button type="button" class="btn danger" data-action="delete" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
+              Delete
+            </button>
+          </div>
         </div>
       `;
       list.appendChild(li);
     }
   } catch (err) {
-    showToast(`\u4E00\u89A7\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557: ${err.message}`);
+    showToast(`Failed to load list: ${err.message}`);
     scriptsCache = [];
     list.innerHTML = "";
     empty?.classList.remove("hidden");
   }
 }
-async function loadSettings() {
-  try {
-    const { settings } = await send(MSG.GET_SETTINGS);
-    loadSettingsForm(settings);
-  } catch (err) {
-    showToast(`\u8A2D\u5B9A\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557: ${err.message}`);
-  }
-}
-function initChat() {
-  const form = $3("#chat-form");
-  const messages = $3("#chat-messages");
-  const status = $3("#chat-status");
-  form?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = $3("#chat-input");
-    const prompt = input.value.trim();
-    if (!prompt) return;
-    appendBubble(messages, "user", prompt);
-    input.value = "";
-    status.textContent = "\u751F\u6210\u4E2D...";
-    $3("#btn-send").disabled = true;
-    try {
-      const { settings } = await send(MSG.GET_SETTINGS);
-      status.textContent = "\u30DA\u30FC\u30B8\u3092\u53D6\u5F97\u3057\u3066\u751F\u6210\u4E2D...";
-      const { code, pageContext } = await generateScript(prompt, settings);
-      const modeLabel = pageContext.mode === "html" ? "HTML\u5168\u6587" : "DOM\u30C4\u30EA\u30FC";
-      const trunc = pageContext.truncated || pageContext.apiTruncated ? "\uFF08\u4E00\u90E8\u7701\u7565\uFF09" : "";
-      const minimal = pageContext.minimalFallback ? "\u30FB\u30DA\u30FC\u30B8\u60C5\u5831\u306A\u3057\u3067\u518D\u8A66\u884C\u6E08" : "";
-      appendBubble(
-        messages,
-        "assistant",
-        `\u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u751F\u6210\u3057\u307E\u3057\u305F\uFF08${modeLabel}${trunc}${minimal}\uFF09\u3002\u6A29\u9650\u78BA\u8A8D\u753B\u9762\u3092\u958B\u304D\u307E\u3059...`
-      );
-      await analyzeAndOpenConfirm(code);
-      status.textContent = "\u6A29\u9650\u78BA\u8A8D\u753B\u9762\u3067\u627F\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044";
-      window.addEventListener("focus", () => loadScripts(), { once: true });
-    } catch (err) {
-      status.textContent = err.message;
-      appendBubble(messages, "assistant", `\u30A8\u30E9\u30FC: ${err.message}`);
-    } finally {
-      $3("#btn-send").disabled = false;
-    }
+function initHeader() {
+  const ver = chrome.runtime.getManifest().version;
+  const el = $2("#header-version");
+  if (el) el.textContent = `v${ver}`;
+  $2("#btn-open-settings")?.addEventListener("click", () => {
+    chrome.tabs.create({ url: "settings/settings.html" });
   });
 }
-function appendBubble(container, role, text) {
-  if (!container) return;
-  const div = document.createElement("div");
-  div.className = `chat-bubble ${role}`;
-  div.textContent = text;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+function renderMarkdown(text) {
+  const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const codeBlocks = [];
+  let processed = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const langClass = lang ? ` class="lang-${escapeHtml(lang)}"` : "";
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre${langClass}><code>${code.trim()}</code></pre>`);
+    return `\x00CODEBLOCK${idx}\x00`;
+  });
+  const fenceMatch = processed.match(/```(\w*)\n([\s\S]*)$/);
+  if (fenceMatch) {
+    const [, lang, code] = fenceMatch;
+    const langClass = lang ? ` class="lang-${escapeHtml(lang)}"` : "";
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre${langClass}><code>${code}</code></pre>`);
+    processed = processed.slice(0, fenceMatch.index) + `\x00CODEBLOCK${idx}\x00`;
+  }
+  const withInlineCode = processed.replace(/`([^`]+)`/g, "<code>$1</code>");
+  const withBold = withInlineCode.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  const withItalic = withBold.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  const withBreaks = withItalic.replace(/\n/g, "<br>");
+  return withBreaks.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => codeBlocks[+i]);
+}
+function initChat() {
+  const form = $2("#chat-form");
+  const output = $2("#chat-output");
+  const status = $2("#chat-status-bar");
+  const input = $2("#chat-input");
+  const sendBtn = $2("#btn-send");
+  const emptyState = $2("#chat-empty-state");
+  function showIdle() {
+    emptyState?.classList.remove("hidden");
+    if (output) output.classList.add("hidden");
+  }
+  function showActive() {
+    emptyState?.classList.add("hidden");
+    if (output) {
+      output.innerHTML = "";
+      output.classList.remove("hidden");
+      output.classList.add("chat-output-streaming");
+    }
+  }
+  function autoResize() {
+    if (!input) return;
+    const prevHeight = input.style.height;
+    input.style.height = "auto";
+    const newHeight = Math.min(input.scrollHeight, 120) + "px";
+    if (prevHeight !== newHeight) {
+      input.style.height = newHeight;
+    }
+  }
+  function updateSendButton() {
+    if (!sendBtn || !input) return;
+    sendBtn.disabled = !input.value.trim();
+  }
+  input?.addEventListener("input", () => {
+    autoResize();
+    updateSendButton();
+  });
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      form?.dispatchEvent(new Event("submit", { cancelable: true }));
+    }
+  });
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const prompt = input.value.trim();
+    if (!prompt || sendBtn?.disabled) return;
+    sendBtn.disabled = true;
+    input.value = "";
+    updateSendButton();
+    autoResize();
+    status.textContent = "Generating...";
+    showActive();
+    let fullText = "";
+    try {
+      const { settings } = await send(MSG.GET_SETTINGS);
+      status.textContent = "Fetching page and generating...";
+      const { code, pageContext } = await generateScriptStream(prompt, settings, (token) => {
+        fullText += token;
+        output.innerHTML = renderMarkdown(fullText);
+        output.scrollTop = output.scrollHeight;
+      });
+      output?.classList.remove("chat-output-streaming");
+      const modeLabel = pageContext.mode === "html" ? "Full HTML" : "DOM Tree";
+      const trunc = pageContext.truncated || pageContext.apiTruncated ? " (truncated)" : "";
+      const minimal = pageContext.minimalFallback ? "\xB7 retried without page context" : "";
+      status.textContent = `Script generated (${modeLabel}${trunc}${minimal}). Opening permission review...`;
+      await analyzeAndOpenConfirm(code);
+      status.textContent = "";
+    } catch (err) {
+      output?.classList.remove("chat-output-streaming");
+      status.textContent = err.message;
+      if (!fullText) {
+        output.innerHTML = `<div class="chat-output-error">${escapeHtml(err.message)}</div>`;
+      }
+    } finally {
+      output?.classList.remove("chat-output-streaming");
+      sendBtn.disabled = false;
+      updateSendButton();
+    }
+  });
+  showIdle();
+  updateSendButton();
 }
 function initImport() {
-  const fileInput = $3("#import-file");
-  $3("#btn-import-file")?.addEventListener("click", () => fileInput?.click());
+  const fileInput = $2("#import-file");
+  $2("#btn-import-file")?.addEventListener("click", () => fileInput?.click());
   fileInput?.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
     if (!file) return;
@@ -925,20 +970,9 @@ function initImport() {
       showToast(e.message);
     }
   });
-  $3("#btn-import-url")?.addEventListener("click", async () => {
-    const url = await showPrompt("\u30A4\u30F3\u30DD\u30FC\u30C8\u3059\u308B .user.js \u306E URL:");
-    if (!url) return;
-    try {
-      const res = await fetch(url);
-      const code = await res.text();
-      await analyzeAndOpenConfirm(code);
-    } catch (e) {
-      showToast(e.message);
-    }
-  });
 }
 function initSidePanel() {
-  $3("#btn-open-sidepanel")?.addEventListener("click", async () => {
+  $2("#btn-open-sidepanel")?.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.windowId) {
       await chrome.sidePanel.open({ windowId: tab.windowId });
@@ -946,7 +980,7 @@ function initSidePanel() {
   });
 }
 function showReloadHint() {
-  const existing = $3("#reload-hint");
+  const existing = $2("#reload-hint");
   if (existing) {
     existing.classList.remove("hidden");
     return;
@@ -954,8 +988,8 @@ function showReloadHint() {
   const p = document.createElement("p");
   p.id = "reload-hint";
   p.className = "status";
-  p.textContent = "\u53CD\u6620\u3059\u308B\u306B\u306F\u5BFE\u8C61\u30DA\u30FC\u30B8\u3092\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002";
-  $3("#view-list")?.prepend(p);
+  p.textContent = "Reload the target page for changes to take effect.";
+  $2("#view-list")?.prepend(p);
 }
 function escapeHtml(s) {
   const d = document.createElement("div");
@@ -966,14 +1000,13 @@ function escapeAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 document.addEventListener("DOMContentLoaded", () => {
+  initHeader();
   initTabs();
   initScriptListDelegation();
-  initSettings(send);
   initChat();
   initImport();
   initSidePanel();
   loadScripts();
-  loadSettings();
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes.scripts) loadScripts();
   });

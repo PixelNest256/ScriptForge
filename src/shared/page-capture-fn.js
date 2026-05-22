@@ -1,5 +1,5 @@
 /**
- * executeScript でページ内実行される関数（外部スコープ非依存・インポート不可）
+ * Function executed inside the page via executeScript (no external scope, no imports)
  */
 export function capturePageContextInPage(mode) {
   const MAX_HTML = 60000;

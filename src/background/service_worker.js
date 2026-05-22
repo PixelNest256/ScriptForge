@@ -25,7 +25,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // コンテンツスクリプトからのスクリプト要求
+  // Script request from content script
   if (message.type === SCRIPTFORGE_REQUEST && sender.tab) {
     getMatchingScriptsForUrl(message.url)
       .then((scripts) => {
@@ -50,7 +50,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// タブ読み込み時にスクリプトを注入（コンテンツスクリプト経由）
+// Inject scripts on tab load (via content script bridge)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url) {
     // Content script will request scripts, so we don't need to do anything here
@@ -100,7 +100,7 @@ async function handleMessage(message) {
     }
 
     case MSG.DELETE_SCRIPT: {
-      if (!message.id) return { error: 'スクリプト ID がありません' };
+      if (!message.id) return { error: 'Script ID is missing' };
       await deleteScript(message.id);
       return { ok: true };
     }

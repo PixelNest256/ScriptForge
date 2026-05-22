@@ -1,6 +1,6 @@
 import { MSG } from '../shared/messages.js';
 import { parseUserscriptMeta } from '../shared/hash.js';
-import { chatCompletion, normalizeLlmSettings, isRetryableApiError } from '../shared/llm.js';
+import { chatCompletion, chatCompletionStream, normalizeLlmSettings, isRetryableApiError } from '../shared/llm.js';
 import {
   captureActiveTabPageContext,
   buildPromptWithPageContext,
@@ -10,10 +10,12 @@ import {
 } from '../shared/page-context.js';
 
 const SYSTEM_PROMPT = `You are a userscript generator for ScriptForge browser extension.
-Output ONLY a complete Tampermonkey-compatible userscript with NO markdown fences.
+Think step by step, then output a complete Tampermonkey-compatible userscript inside a single markdown code block (use \`\`\`javascript ... \`\`\`).
 
 Requirements:
-- Start with // ==UserScript== block containing @name, @description, @match (at least one), @version
+- First, explain your approach briefly in natural language (1-3 sentences).
+- Then output the userscript code inside \`\`\`javascript ... \`\`\` fences.
+- The script must start with // ==UserScript== block containing @name, @description, @match (at least one), @version
 - End metadata with // ==/UserScript==
 - Body must be an IIFE: (function () { 'use strict'; ... })();
 - NEVER use eval, new Function, dynamic import(), or string arguments to setTimeout/setInterval
@@ -28,7 +30,7 @@ export async function generateScript(prompt, settings) {
   const { pageContextMode } = normalizePageContextSettings(settings);
 
   if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
-    throw new Error('APIキーが設定されていません（ローカル API の場合は空でも可）');
+    throw new Error('API key not set (can be empty for local APIs)');
   }
 
   const pageContext = await captureActiveTabPageContext(pageContextMode);
@@ -67,6 +69,60 @@ export async function generateScript(prompt, settings) {
         userPrompt,
         settings,
       });
+      const result = finishGeneration(text, llm.llmModel, pageContext, pageContext);
+      result.pageContext.minimalFallback = usedMinimal;
+      return result;
+    }
+  }
+}
+
+export async function generateScriptStream(prompt, settings, onToken) {
+  const llm = normalizeLlmSettings(settings);
+  const { pageContextMode } = normalizePageContextSettings(settings);
+
+  if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
+    throw new Error('API key not set (can be empty for local APIs)');
+  }
+
+  const pageContext = await captureActiveTabPageContext(pageContextMode);
+  const limited = limitPageContextForApi(pageContext);
+
+  let userPrompt = buildPromptWithPageContext(prompt, limited);
+  let usedMinimal = false;
+
+  try {
+    const text = await chatCompletionStream({
+      systemPrompt: SYSTEM_PROMPT,
+      userPrompt,
+      settings,
+      onToken,
+    });
+    return finishGeneration(text, llm.llmModel, pageContext, limited);
+  } catch (firstErr) {
+    if (!isRetryableApiError(firstErr)) throw firstErr;
+
+    const smaller = limitPageContextForApi(pageContext, 10000);
+    userPrompt = buildPromptWithPageContext(prompt, smaller);
+
+    try {
+      const text = await chatCompletion({
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt,
+        settings,
+      });
+      onToken?.(text);
+      return finishGeneration(text, llm.llmModel, pageContext, smaller);
+    } catch (secondErr) {
+      if (!isRetryableApiError(secondErr)) throw secondErr;
+
+      userPrompt = buildMinimalPagePrompt(prompt, pageContext);
+      usedMinimal = true;
+      const text = await chatCompletion({
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt,
+        settings,
+      });
+      onToken?.(text);
       const result = finishGeneration(text, llm.llmModel, pageContext, pageContext);
       result.pageContext.minimalFallback = usedMinimal;
       return result;
@@ -113,14 +169,14 @@ function stripCodeFences(text) {
 export async function analyzeAndOpenConfirm(code) {
   const result = await chrome.runtime.sendMessage({ type: MSG.ANALYZE_CODE, code });
   if (result.syntaxError) {
-    throw new Error(`構文エラー: ${result.syntaxError}`);
+    throw new Error(`Syntax error: ${result.syntaxError}`);
   }
   if (result.blocked?.length) {
     const msgs = result.blocked.map((b) => b.message).join('\n');
-    throw new Error(`ブロックされました:\n${msgs}`);
+    throw new Error(`Blocked:\n${msgs}`);
   }
   if (result.lintErrors?.length) {
-    throw new Error(`Lint エラー:\n${result.lintErrors.join('\n')}`);
+    throw new Error(`Lint errors:\n${result.lintErrors.join('\n')}`);
   }
 
   const { meta } = parseUserscriptMeta(code);

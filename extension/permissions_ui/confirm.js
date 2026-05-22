@@ -93,28 +93,28 @@ function createScriptId() {
 }
 
 // src/permissions_ui/confirm.js
-var RISK_LABEL = { high: "\u9AD8", medium: "\u4E2D", low: "\u4F4E" };
+var RISK_LABEL = { high: "High", medium: "Medium", low: "Low" };
 async function init() {
   const { pendingScript } = await chrome.storage.local.get("pendingScript");
   if (!pendingScript) {
-    document.body.innerHTML = "<p>\u78BA\u8A8D\u5BFE\u8C61\u306E\u30B9\u30AF\u30EA\u30D7\u30C8\u304C\u3042\u308A\u307E\u305B\u3093\u3002</p>";
+    document.body.innerHTML = "<p>No script to review.</p>";
     return;
   }
   const { code, meta, permissions, notDetected } = pendingScript;
-  const name = meta.name || "\u7121\u984C";
+  const name = meta.name || "Untitled";
   const matches = (meta.match || []).join(", ") || "\u2014";
-  document.getElementById("script-info").textContent = `\u30B9\u30AF\u30EA\u30D7\u30C8\u540D: ${name}
-\u5BFE\u8C61: ${matches}`;
+  document.getElementById("script-info").textContent = `Script: ${name}
+Matches: ${matches}`;
   const detectedEl = document.getElementById("perm-detected");
   if (!permissions?.length) {
-    detectedEl.innerHTML = '<p class="meta">\u7279\u5225\u306A\u6A29\u9650\u306F\u691C\u51FA\u3055\u308C\u307E\u305B\u3093\u3067\u3057\u305F\uFF08DOM\u64CD\u4F5C\u306E\u307F\u306E\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\uFF09\u3002</p>';
+    detectedEl.innerHTML = '<p class="meta">No special permissions detected (DOM manipulation only).</p>';
   } else {
     for (const p of permissions) {
       const div = document.createElement("div");
       div.className = "perm-item";
-      const domains = p.domains?.length ? `<br><small>\u901A\u4FE1\u5148: ${p.domains.join(", ")}</small>` : "";
+      const domains = p.domains?.length ? `<br><small>Targets: ${p.domains.join(", ")}</small>` : "";
       div.innerHTML = `
-        <h4 class="risk-${p.risk}">${p.label}\uFF08\u30EA\u30B9\u30AF: ${RISK_LABEL[p.risk] || p.risk}\uFF09</h4>
+        <h4 class="risk-${p.risk}">${p.label} (risk: ${RISK_LABEL[p.risk] || p.risk})</h4>
         <p class="meta">${p.description || ""}${domains}</p>
       `;
       detectedEl.appendChild(div);
@@ -123,13 +123,13 @@ async function init() {
   if (pendingScript.lintWarnings?.length) {
     const warn = document.createElement("p");
     warn.className = "status";
-    warn.textContent = `\u8B66\u544A: ${pendingScript.lintWarnings.join(" / ")}`;
+    warn.textContent = `Warning: ${pendingScript.lintWarnings.join(" / ")}`;
     document.querySelector(".not-detected")?.before(warn);
   }
   const notEl = document.getElementById("perm-not-detected");
   for (const p of notDetected || []) {
     const li = document.createElement("li");
-    li.textContent = `\u2705 ${p.label}\u306A\u3057`;
+    li.textContent = `\u2705 ${p.label} \u2014 not detected`;
     notEl.appendChild(li);
   }
   document.getElementById("btn-reject").addEventListener("click", async () => {
@@ -138,7 +138,7 @@ async function init() {
   });
   document.getElementById("btn-approve").addEventListener("click", async () => {
     const status = document.getElementById("confirm-status");
-    status.textContent = "\u4FDD\u5B58\u4E2D...";
+    status.textContent = "Saving...";
     try {
       const normalizedCode = normalizeUserscriptCode(code);
       const body = bodyForHash(normalizedCode);
@@ -175,7 +175,7 @@ async function init() {
       };
       await chrome.runtime.sendMessage({ type: MSG.SAVE_SCRIPT, script });
       await chrome.storage.local.remove(["pendingScript", "pendingEditId"]);
-      status.textContent = "\u4FDD\u5B58\u3057\u307E\u3057\u305F";
+      status.textContent = "Saved";
       setTimeout(() => window.close(), 600);
     } catch (e) {
       status.textContent = e.message;

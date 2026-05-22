@@ -21,6 +21,10 @@
     "service_worker": "background/service_worker.js",
     "type": "module"
   },
+  "options_ui": {
+    "page": "settings/settings.html",
+    "open_in_tab": true
+  },
   "side_panel": {
     "default_path": "sidepanel/sidepanel.html"
   },

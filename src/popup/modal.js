@@ -27,7 +27,7 @@ export function showConfirm(message) {
 
     msg.textContent = message;
     actions.innerHTML = `
-      <button type="button" class="btn secondary" data-modal="cancel">キャンセル</button>
+      <button type="button" class="btn secondary" data-modal="cancel">Cancel</button>
       <button type="button" class="btn danger" data-modal="ok">OK</button>
     `;
     overlay.classList.remove('hidden');
@@ -49,13 +49,13 @@ export function showConfirm(message) {
   });
 }
 
-export function showEditDialog(code, title = 'スクリプトを編集') {
+export function showEditDialog(code, title = 'Edit Script') {
   return new Promise((resolve) => {
     const overlay = $('#edit-overlay');
     const textarea = $('#edit-code');
     const titleEl = $('#edit-title');
     if (!overlay || !textarea) {
-      const result = window.prompt('スクリプトを編集:', code);
+      const result = window.prompt('Edit Script:', code);
       resolve(result);
       return;
     }

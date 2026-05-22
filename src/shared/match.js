@@ -1,4 +1,4 @@
-/** Chrome userScripts 向けに @match を正規化 */
+/** Normalize @match patterns for Chrome userScripts */
 export function normalizeMatchPattern(pattern) {
   const p = String(pattern).trim();
   if (!p) return p;

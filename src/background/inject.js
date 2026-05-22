@@ -24,7 +24,7 @@ function getMatchPatterns(script) {
   return patterns.length ? patterns : ['<all_urls>'];
 }
 
-/** Userscript 本文をコンテンツスクリプト実行用にラップ */
+/** Wrap userscript body for content script execution */
 export function wrapUserScriptBody(body) {
   const trimmed = body.trim();
   if (/^\(?\s*function/.test(trimmed) || trimmed.startsWith('(function')) {
@@ -34,8 +34,8 @@ export function wrapUserScriptBody(body) {
 }
 
 /**
- * 指定URLにマッチする有効スクリプトを返す。
- * コンテンツスクリプトブリッジ方式のため、API登録は不要。
+ * Return enabled scripts matching the given URL.
+ * Uses content script bridge mode, no API registration needed.
  */
 export async function getMatchingScriptsForUrl(url) {
   const scripts = await getScripts();
@@ -60,13 +60,13 @@ export async function getMatchingScriptsForUrl(url) {
   return result;
 }
 
-/** 互換用: 現在はコンテンツスクリプトブリッジ方式のため即時解決 */
+/** For compatibility: content script bridge mode, resolves immediately */
 export async function syncAllUserScripts() {
   console.log('[ScriptForge] syncAllUserScripts: content script bridge mode (no API registration needed)');
   return { registered: 0, cleared: 0 };
 }
 
-/** CRLF 等でずれた hash を本文から再計算して修復 */
+/** Recalculate and fix hash offset by CRLF differences */
 async function tryRepairScriptHash(script) {
   const code = normalizeUserscriptCode(script.code);
   const body = bodyForHash(code);

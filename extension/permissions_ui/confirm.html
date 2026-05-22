@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>権限確認 — ScriptForge</title>
+  <title>Permission Review — ScriptForge</title>
   <link rel="stylesheet" href="../popup/styles.css" />
   <style>
     body { width: 460px; min-height: 500px; padding: 16px; }
@@ -17,22 +17,22 @@
   </style>
 </head>
 <body>
-  <h2 class="warning-title">このスクリプトの権限を確認してください</h2>
+  <h2 class="warning-title">Review permissions for this script</h2>
   <p id="script-info" class="meta"></p>
 
   <section id="section-detected">
-    <h3>検出された権限</h3>
+    <h3>Detected Permissions</h3>
     <div id="perm-detected" class="perm-list"></div>
   </section>
 
   <section class="not-detected">
-    <h3>検出されなかった権限</h3>
+    <h3>Not Detected</h3>
     <ul id="perm-not-detected"></ul>
   </section>
 
   <div class="actions">
-    <button type="button" id="btn-reject" class="btn secondary">拒否</button>
-    <button type="button" id="btn-approve" class="btn primary">承認して保存</button>
+    <button type="button" id="btn-reject" class="btn secondary">Reject</button>
+    <button type="button" id="btn-approve" class="btn primary">Approve & Save</button>
   </div>
 
   <p id="confirm-status" class="status"></p>

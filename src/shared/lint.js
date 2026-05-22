@@ -5,14 +5,14 @@ export function lintGeneratedBody(body) {
   const warnings = [];
   const errors = [];
 
-  if (/\beval\s*\(/.test(body)) errors.push('eval() が含まれています');
-  if (/\bnew\s+Function\s*\(/.test(body)) errors.push('new Function() が含まれています');
-  if (/setTimeout\s*\(\s*['"`]/.test(body)) errors.push('setTimeout に文字列が渡されています');
-  if (/setInterval\s*\(\s*['"`]/.test(body)) errors.push('setInterval に文字列が渡されています');
+  if (/\beval\s*\(/.test(body)) errors.push('eval() is present');
+  if (/\bnew\s+Function\s*\(/.test(body)) errors.push('new Function() is present');
+  if (/setTimeout\s*\(\s*['"`]/.test(body)) errors.push('String passed to setTimeout');
+  if (/setInterval\s*\(\s*['"`]/.test(body)) errors.push('String passed to setInterval');
 
-  if (body.length > 50000) warnings.push('スクリプトが大きすぎます（50KB超）');
+  if (body.length > 50000) warnings.push('Script is too large (over 50KB)');
   if ((body.match(/\bfunction\b/g) || []).length > 50) {
-    warnings.push('関数が多すぎます。意図したコードか確認してください');
+    warnings.push('Too many functions. Please verify the intended code');
   }
 
   return { ok: errors.length === 0, errors, warnings };

@@ -5,6 +5,56 @@ import { showToast } from './modal.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+export function renderProviderDropdown(container) {
+  container.innerHTML = '';
+  const select = document.createElement('select');
+  select.id = 'api-provider';
+  for (const preset of LLM_PRESETS) {
+    const opt = document.createElement('option');
+    opt.value = preset.id;
+    opt.textContent = preset.label;
+    select.appendChild(opt);
+  }
+  const custom = document.createElement('option');
+  custom.value = '__custom__';
+  custom.textContent = 'Custom';
+  select.appendChild(custom);
+
+  select.addEventListener('change', () => {
+    const urlInput = $('#api-base-url');
+    if (select.value === '__custom__') {
+      urlInput.disabled = false;
+      urlInput.style.opacity = '1';
+    } else {
+      const preset = LLM_PRESETS.find((p) => p.id === select.value);
+      if (preset) {
+        urlInput.value = preset.baseUrl;
+      }
+      urlInput.disabled = true;
+      urlInput.style.opacity = '0.5';
+    }
+  });
+
+  container.appendChild(select);
+}
+
+export function syncProviderDropdown() {
+  const select = $('#api-provider');
+  const urlInput = $('#api-base-url');
+  if (!select || !urlInput) return;
+  const currentUrl = urlInput.value.trim();
+  const match = LLM_PRESETS.find((p) => p.baseUrl === currentUrl);
+  if (match) {
+    select.value = match.id;
+    urlInput.disabled = true;
+    urlInput.style.opacity = '0.5';
+  } else {
+    select.value = '__custom__';
+    urlInput.disabled = false;
+    urlInput.style.opacity = '1';
+  }
+}
+
 export function renderSettingsPresets(container) {
   container.innerHTML = '';
   for (const preset of LLM_PRESETS) {
@@ -32,6 +82,7 @@ export function loadSettingsForm(settings) {
   const mode = page.pageContextMode;
   const radio = document.querySelector(`input[name="page-context-mode"][value="${mode}"]`);
   if (radio) radio.checked = true;
+  syncProviderDropdown();
 }
 
 export function readSettingsForm() {
@@ -60,16 +111,16 @@ export function initSettings(send) {
       console.log('[ScriptForge] sending settings:', settings);
       await send(MSG.SAVE_SETTINGS, { settings });
       console.log('[ScriptForge] settings saved successfully');
-      $('#settings-status').textContent = '保存しました';
+      $('#settings-status').textContent = 'Saved';
     } catch (err) {
       console.error('[ScriptForge] save settings error:', err);
-      $('#settings-status').textContent = `保存失敗: ${err.message}`;
+      $('#settings-status').textContent = `Save failed: ${err.message}`;
     }
   });
 
   $('#btn-test-api')?.addEventListener('click', async () => {
     const status = $('#settings-status');
-    status.textContent = '接続テスト中...';
+    status.textContent = 'Testing connection...';
     try {
       const form = readSettingsForm();
       await chatCompletion({
@@ -77,10 +128,10 @@ export function initSettings(send) {
         userPrompt: 'ping',
         settings: form,
       });
-      status.textContent = '接続成功';
+      status.textContent = 'Connection successful';
     } catch (e) {
-      status.textContent = `接続失敗: ${e.message}`;
-      showToast(`接続失敗: ${e.message}`);
+      status.textContent = `Connection failed: ${e.message}`;
+      showToast(`Connection failed: ${e.message}`);
     }
   });
 }

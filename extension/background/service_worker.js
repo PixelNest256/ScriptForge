@@ -6064,13 +6064,13 @@ base.MethodDefinition = base.PropertyDefinition = base.Property = function(node,
 
 // src/analyzer/dangerous_patterns.js
 var BLOCKED = {
-  eval: "eval() \u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  new_function: "new Function() \u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  string_setTimeout: "setTimeout \u306B\u6587\u5B57\u5217\u3092\u6E21\u3059\u3053\u3068\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  string_setInterval: "setInterval \u306B\u6587\u5B57\u5217\u3092\u6E21\u3059\u3053\u3068\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  dynamic_import: "\u52D5\u7684 import() \u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  external_script: "\u5916\u90E8 script \u306E\u6CE8\u5165\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
-  concat_access: "\u6587\u5B57\u5217\u9023\u7D50\u306B\u3088\u308B API \u8FC2\u56DE\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093"
+  eval: "eval() is not allowed",
+  new_function: "new Function() is not allowed",
+  string_setTimeout: "Passing a string to setTimeout is not allowed",
+  string_setInterval: "Passing a string to setInterval is not allowed",
+  dynamic_import: "Dynamic import() is not allowed",
+  external_script: "External script injection is not allowed",
+  concat_access: "String concatenation API bypass is not allowed"
 };
 function detectDangerousPatterns(ast) {
   const blocked = [];
@@ -6193,45 +6193,45 @@ function isExternalScriptSrc(node) {
 var PERMISSION_CATALOG = {
   network: {
     id: "network",
-    label: "\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u901A\u4FE1",
+    label: "Network",
     risk: "high",
-    description: "fetch / XMLHttpRequest / WebSocket \u306B\u3088\u308B\u901A\u4FE1"
+    description: "fetch / XMLHttpRequest / WebSocket communication"
   },
   keyboard: {
     id: "keyboard",
-    label: "\u30AD\u30FC\u5165\u529B\u76E3\u8996",
+    label: "Keyboard Input",
     risk: "high",
-    description: "\u30AD\u30FC\u30DC\u30FC\u30C9\u30A4\u30D9\u30F3\u30C8\u306E\u76E3\u8996"
+    description: "Keyboard event monitoring"
   },
   cookie: {
     id: "cookie",
     label: "Cookie",
     risk: "high",
-    description: "document.cookie \u3078\u306E\u30A2\u30AF\u30BB\u30B9"
+    description: "document.cookie access"
   },
   clipboard: {
     id: "clipboard",
-    label: "\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9",
+    label: "Clipboard",
     risk: "medium",
-    description: "navigator.clipboard \u3078\u306E\u30A2\u30AF\u30BB\u30B9"
+    description: "navigator.clipboard access"
   },
   storage: {
     id: "storage",
-    label: "\u30ED\u30FC\u30AB\u30EB\u30B9\u30C8\u30EC\u30FC\u30B8",
+    label: "Local Storage",
     risk: "medium",
     description: "localStorage / sessionStorage"
   },
   dom_read: {
     id: "dom_read",
-    label: "DOM\u8AAD\u307F\u53D6\u308A",
+    label: "DOM Read",
     risk: "low",
-    description: "\u30DA\u30FC\u30B8\u5185\u5BB9\u306E\u8AAD\u307F\u53D6\u308A"
+    description: "Page content reading"
   },
   dom_write: {
     id: "dom_write",
-    label: "DOM\u5909\u66F4",
+    label: "DOM Write",
     risk: "low",
-    description: "\u30DA\u30FC\u30B8\u306E\u898B\u305F\u76EE\u3084\u69CB\u9020\u306E\u5909\u66F4"
+    description: "Page appearance or structure changes"
   }
 };
 function detectPermissions(ast) {
@@ -6354,13 +6354,13 @@ function checkDomWriteMember(node, found) {
 function lintGeneratedBody(body) {
   const warnings = [];
   const errors = [];
-  if (/\beval\s*\(/.test(body)) errors.push("eval() \u304C\u542B\u307E\u308C\u3066\u3044\u307E\u3059");
-  if (/\bnew\s+Function\s*\(/.test(body)) errors.push("new Function() \u304C\u542B\u307E\u308C\u3066\u3044\u307E\u3059");
-  if (/setTimeout\s*\(\s*['"`]/.test(body)) errors.push("setTimeout \u306B\u6587\u5B57\u5217\u304C\u6E21\u3055\u308C\u3066\u3044\u307E\u3059");
-  if (/setInterval\s*\(\s*['"`]/.test(body)) errors.push("setInterval \u306B\u6587\u5B57\u5217\u304C\u6E21\u3055\u308C\u3066\u3044\u307E\u3059");
-  if (body.length > 5e4) warnings.push("\u30B9\u30AF\u30EA\u30D7\u30C8\u304C\u5927\u304D\u3059\u304E\u307E\u3059\uFF0850KB\u8D85\uFF09");
+  if (/\beval\s*\(/.test(body)) errors.push("eval() is present");
+  if (/\bnew\s+Function\s*\(/.test(body)) errors.push("new Function() is present");
+  if (/setTimeout\s*\(\s*['"`]/.test(body)) errors.push("String passed to setTimeout");
+  if (/setInterval\s*\(\s*['"`]/.test(body)) errors.push("String passed to setInterval");
+  if (body.length > 5e4) warnings.push("Script is too large (over 50KB)");
   if ((body.match(/\bfunction\b/g) || []).length > 50) {
-    warnings.push("\u95A2\u6570\u304C\u591A\u3059\u304E\u307E\u3059\u3002\u610F\u56F3\u3057\u305F\u30B3\u30FC\u30C9\u304B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044");
+    warnings.push("Too many functions. Please verify the intended code");
   }
   return { ok: errors.length === 0, errors, warnings };
 }
@@ -6603,7 +6603,7 @@ async function handleMessage(message) {
       return { script, reloadHint: true };
     }
     case MSG.DELETE_SCRIPT: {
-      if (!message.id) return { error: "\u30B9\u30AF\u30EA\u30D7\u30C8 ID \u304C\u3042\u308A\u307E\u305B\u3093" };
+      if (!message.id) return { error: "Script ID is missing" };
       await deleteScript(message.id);
       return { ok: true };
     }

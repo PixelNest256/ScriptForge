@@ -8,7 +8,7 @@ export async function sha256(text) {
   return `sha256:${hex}`;
 }
 
-/** ハッシュ計算・照合前に改行を統一（Windows CRLF で検証失敗するのを防ぐ） */
+/** Normalize line endings before hash calculation (prevent Windows CRLF issues) */
 export function normalizeScriptBody(body) {
   return String(body).replace(/\r\n/g, '\n').trim();
 }

@@ -1,13 +1,13 @@
 import * as walk from 'acorn-walk';
 
 const BLOCKED = {
-  eval: 'eval() は許可されていません',
-  new_function: 'new Function() は許可されていません',
-  string_setTimeout: 'setTimeout に文字列を渡すことは許可されていません',
-  string_setInterval: 'setInterval に文字列を渡すことは許可されていません',
-  dynamic_import: '動的 import() は許可されていません',
-  external_script: '外部 script の注入は許可されていません',
-  concat_access: '文字列連結による API 迂回は許可されていません',
+  eval: 'eval() is not allowed',
+  new_function: 'new Function() is not allowed',
+  string_setTimeout: 'Passing a string to setTimeout is not allowed',
+  string_setInterval: 'Passing a string to setInterval is not allowed',
+  dynamic_import: 'Dynamic import() is not allowed',
+  external_script: 'External script injection is not allowed',
+  concat_access: 'String concatenation API bypass is not allowed',
 };
 
 export function detectDangerousPatterns(ast) {

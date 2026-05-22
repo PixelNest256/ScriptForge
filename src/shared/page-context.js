@@ -3,7 +3,7 @@ import { capturePageContextInPage } from './page-capture-fn.js';
 export const PAGE_CONTEXT_HTML = 'html';
 export const PAGE_CONTEXT_DOM = 'dom';
 
-/** API 送信時のページ本文上限（文字） */
+/** Page content limit when sending to API (characters) */
 export const API_CONTENT_LIMIT = {
   dom: 28000,
   html: 45000,
@@ -23,9 +23,9 @@ export function isRestrictedUrl(url) {
 
 export async function captureActiveTabPageContext(mode) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error('アクティブなタブがありません');
+  if (!tab?.id) throw new Error('No active tab');
   if (isRestrictedUrl(tab.url)) {
-    throw new Error('このページでは HTML / DOM を取得できません（ブラウザ内部ページ）');
+    throw new Error('Cannot get HTML/DOM from this page (browser internal page)');
   }
 
   const [{ result }] = await chrome.scripting.executeScript({
@@ -35,13 +35,13 @@ export async function captureActiveTabPageContext(mode) {
   });
 
   if (!result?.content) {
-    throw new Error('ページの取得に失敗しました');
+    throw new Error('Failed to get page content');
   }
 
   return result;
 }
 
-/** API 送信用にページ本文を制限 */
+/** Limit page content for API transmission */
 export function limitPageContextForApi(pageContext, maxChars) {
   const defaultMax =
     maxChars ?? API_CONTENT_LIMIT[pageContext.mode] ?? API_CONTENT_LIMIT.dom;

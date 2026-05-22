@@ -3,45 +3,45 @@ import * as walk from 'acorn-walk';
 export const PERMISSION_CATALOG = {
   network: {
     id: 'network',
-    label: 'ネットワーク通信',
+    label: 'Network',
     risk: 'high',
-    description: 'fetch / XMLHttpRequest / WebSocket による通信',
+    description: 'fetch / XMLHttpRequest / WebSocket communication',
   },
   keyboard: {
     id: 'keyboard',
-    label: 'キー入力監視',
+    label: 'Keyboard Input',
     risk: 'high',
-    description: 'キーボードイベントの監視',
+    description: 'Keyboard event monitoring',
   },
   cookie: {
     id: 'cookie',
     label: 'Cookie',
     risk: 'high',
-    description: 'document.cookie へのアクセス',
+    description: 'document.cookie access',
   },
   clipboard: {
     id: 'clipboard',
-    label: 'クリップボード',
+    label: 'Clipboard',
     risk: 'medium',
-    description: 'navigator.clipboard へのアクセス',
+    description: 'navigator.clipboard access',
   },
   storage: {
     id: 'storage',
-    label: 'ローカルストレージ',
+    label: 'Local Storage',
     risk: 'medium',
     description: 'localStorage / sessionStorage',
   },
   dom_read: {
     id: 'dom_read',
-    label: 'DOM読み取り',
+    label: 'DOM Read',
     risk: 'low',
-    description: 'ページ内容の読み取り',
+    description: 'Page content reading',
   },
   dom_write: {
     id: 'dom_write',
-    label: 'DOM変更',
+    label: 'DOM Write',
     risk: 'low',
-    description: 'ページの見た目や構造の変更',
+    description: 'Page appearance or structure changes',
   },
 };
 

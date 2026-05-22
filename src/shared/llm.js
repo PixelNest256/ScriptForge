@@ -1,4 +1,4 @@
-/** OpenAI 互換 Chat Completions API クライアント */
+/** OpenAI-compatible Chat Completions API client */
 
 export const LLM_PRESETS = [
   {
@@ -15,13 +15,13 @@ export const LLM_PRESETS = [
   },
   {
     id: 'ollama',
-    label: 'Ollama（ローカル）',
+    label: 'Ollama',
     baseUrl: 'http://localhost:11434/v1',
     model: 'llama3.2',
   },
   {
     id: 'lmstudio',
-    label: 'LM Studio（ローカル）',
+    label: 'LM Studio',
     baseUrl: 'http://localhost:1234/v1',
     model: 'local-model',
   },
@@ -40,7 +40,7 @@ export const DEFAULT_LLM = {
   pageContextMode: 'dom',
 };
 
-/** 旧 Anthropic 設定からの移行を含めて正規化 */
+/** Normalize settings, including migration from old Anthropic config */
 export function normalizeLlmSettings(settings = {}) {
   const baseUrl = (
     settings.llmBaseUrl ||
@@ -125,22 +125,22 @@ function enrichApiError(message, status, body) {
   const hints = [];
 
   if (/provider returned error/i.test(m)) {
-    hints.push('上流プロバイダがエラーを返しました（モデル障害・一時的な過負荷のことがあります）');
-    hints.push('設定の「DOMツリー」モードを試す（HTML全文より軽量）');
-    hints.push('別のモデル名に変更（例: OpenRouter なら openai/gpt-4o-mini）');
+    hints.push('Upstream provider returned an error (model outage or temporary overload)');
+    hints.push('Try "DOM Tree" mode in settings (lighter than full HTML)');
+    hints.push('Try a different model name (e.g. openai/gpt-4o-mini on OpenRouter)');
   }
   if (/context|token|length|too large|maximum/i.test(m)) {
-    hints.push('ページ情報が大きすぎます。設定で DOM ツリーを選ぶか、要素の少ないページで試してください');
+    hints.push('Page context is too large. Select DOM Tree in settings or try on a simpler page');
   }
   if (status === 401 || /auth|api.?key|unauthorized/i.test(m)) {
-    hints.push('API キーが無効または未設定です');
+    hints.push('API key is invalid or not set');
   }
   if (status === 404 || /model.*not found|does not exist/i.test(m)) {
-    hints.push('モデル名が存在しません。プロバイダのドキュメントで正しい ID を確認してください');
+    hints.push('Model name does not exist. Check the provider documentation for the correct ID');
   }
 
   if (hints.length === 0) return m;
-  return `${m}\n\n【対処のヒント】\n${hints.map((h) => `・${h}`).join('\n')}`;
+  return `${m}\n\n[Troubleshooting hints]\n${hints.map((h) => `• ${h}`).join('\n')}`;
 }
 
 function extractMessageContent(data) {
@@ -150,12 +150,12 @@ function extractMessageContent(data) {
   if (choice.error) {
     const e = choice.error;
     throw new Error(
-      typeof e === 'string' ? e : e.message || 'モデルがエラーを返しました'
+      typeof e === 'string' ? e : e.message || 'Model returned an error'
     );
   }
 
   if (choice.finish_reason === 'error') {
-    throw new Error('モデルがエラー終了しました（finish_reason: error）');
+    throw new Error('Model finished with error (finish_reason: error)');
   }
 
   const content = choice.message?.content;
@@ -172,7 +172,7 @@ export async function chatCompletion({ systemPrompt, userPrompt, settings }) {
   const { llmBaseUrl, llmApiKey, llmModel } = normalizeLlmSettings(settings);
 
   if (!llmModel?.trim()) {
-    throw new Error('モデル名を設定してください');
+    throw new Error('Please set a model name');
   }
 
   const url = chatCompletionsUrl(llmBaseUrl);
@@ -197,7 +197,7 @@ export async function chatCompletion({ systemPrompt, userPrompt, settings }) {
     });
   } catch (netErr) {
     throw new Error(
-      `ネットワークエラー: ${netErr.message}（URL・CORS・ローカル API の起動を確認）`
+      `Network error: ${netErr.message} (check URL, CORS, or local API status)`
     );
   }
 
@@ -207,7 +207,7 @@ export async function chatCompletion({ systemPrompt, userPrompt, settings }) {
     data = rawText ? JSON.parse(rawText) : {};
   } catch {
     throw new Error(
-      `API が JSON 以外を返しました (${res.status}): ${rawText.slice(0, 200)}`
+      `API returned non-JSON (${res.status}): ${rawText.slice(0, 200)}`
     );
   }
 
@@ -222,10 +222,115 @@ export async function chatCompletion({ systemPrompt, userPrompt, settings }) {
   const text = extractMessageContent(data);
   if (!text?.trim()) {
     throw new Error(
-      'API から空の応答が返されました。モデル名・コンテキスト長を確認してください'
+      'API returned an empty response. Check model name and context length'
     );
   }
   return text.trim();
+}
+
+export async function chatCompletionStream({ systemPrompt, userPrompt, settings, onToken }) {
+  const { llmBaseUrl, llmApiKey, llmModel } = normalizeLlmSettings(settings);
+
+  if (!llmModel?.trim()) {
+    throw new Error('Please set a model name');
+  }
+
+  const url = chatCompletionsUrl(llmBaseUrl);
+  const headers = buildProviderHeaders(llmBaseUrl, llmApiKey);
+
+  const body = {
+    model: llmModel.trim(),
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: 4096,
+    temperature: 0.3,
+    stream: true,
+  };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+  } catch (netErr) {
+    throw new Error(
+      `Network error: ${netErr.message} (check URL, CORS, or local API status)`
+    );
+  }
+
+  if (!res.ok) {
+    const rawText = await res.text().catch(() => '');
+    let data = {};
+    try { data = rawText ? JSON.parse(rawText) : {}; } catch {}
+    throw new Error(parseApiError(res.status, data));
+  }
+
+  let fullText = '';
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error('Streaming not supported by this browser');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let charsSinceYield = 0;
+
+  function extractDelta(parsed) {
+    return (
+      parsed.choices?.[0]?.delta?.content ??
+      parsed.choices?.[0]?.message?.content ??
+      parsed.choices?.[0]?.text ??
+      null
+    );
+  }
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      let payload = trimmed;
+
+      if (payload.startsWith('data:')) {
+        payload = payload.slice(5).trim();
+      } else if (!payload.startsWith('{') && !payload.startsWith('[')) {
+        continue;
+      }
+
+      if (payload === '[DONE]') continue;
+
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = extractDelta(parsed);
+        if (delta) {
+          fullText += delta;
+          try { onToken?.(delta); } catch {}
+          charsSinceYield += delta.length;
+          if (charsSinceYield > 5) {
+            charsSinceYield = 0;
+            await new Promise(r => requestAnimationFrame(r));
+          }
+        }
+      } catch {}
+    }
+  }
+
+  if (!fullText.trim()) {
+    throw new Error('API returned an empty response. Check model name and context length');
+  }
+
+  return fullText.trim();
 }
 
 export function isRetryableApiError(err) {
@@ -233,6 +338,6 @@ export function isRetryableApiError(err) {
   return (
     /provider returned error/i.test(m) ||
     /context|token|length|too large|maximum/i.test(m) ||
-    /empty|空の応答/i.test(m)
+    /empty/i.test(m)
   );
 }

@@ -1,6 +1,5 @@
 import { MSG } from '../shared/messages.js';
-import { generateScript, analyzeAndOpenConfirm } from './chat.js';
-import { initSettings, loadSettingsForm } from './settings-ui.js';
+import { generateScriptStream, analyzeAndOpenConfirm } from './chat.js';
 import { normalizePageContextSettings } from '../shared/page-context.js';
 import { createMessenger } from './messaging.js';
 import { showConfirm, showEditDialog, showPrompt, showToast } from './modal.js';
@@ -32,12 +31,12 @@ async function updatePageContextHint() {
   try {
     const { settings } = await send(MSG.GET_SETTINGS);
     const { pageContextMode } = normalizePageContextSettings(settings);
-    const label = pageContextMode === 'html' ? 'HTML 全文' : 'DOM ツリー';
+    const label = pageContextMode === 'html' ? 'Full HTML' : 'DOM Tree';
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = tab?.url ? new URL(tab.url).hostname : '（タブなし）';
-    el.textContent = `生成時に現在のタブへ ${label} を送信します — ${url}`;
+    const url = tab?.url ? new URL(tab.url).hostname : '(no tab)';
+    el.textContent = `Will send ${label} from current tab on generate — ${url}`;
   } catch (e) {
-    el.textContent = `設定を読み込めません: ${e.message}`;
+    el.textContent = `Could not load settings: ${e.message}`;
   }
 }
 
@@ -47,9 +46,23 @@ function initScriptListDelegation() {
   list.dataset.bound = '1';
 
   list.addEventListener('click', async (e) => {
+    const header = e.target.closest('.script-header[data-action="toggle"]');
+    if (header && !e.target.closest('.toggle')) {
+      e.preventDefault();
+      const id = header.dataset.id;
+      if (id) {
+        const details = document.getElementById(`details-${id}`);
+        const collapseBtn = header.querySelector('.collapse-btn');
+        if (details) {
+          details.classList.toggle('expanded');
+          collapseBtn?.classList.toggle('expanded');
+        }
+      }
+      return;
+    }
+
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
-
     e.preventDefault();
     e.stopPropagation();
 
@@ -69,23 +82,23 @@ function initScriptListDelegation() {
       const res = await send(MSG.TOGGLE_SCRIPT, { id: cb.dataset.id, enabled: cb.checked });
       if (res?.reloadHint) showReloadHint();
     } catch (err) {
-      showToast(`有効化の変更に失敗: ${err.message}`);
+      showToast(`Toggle failed: ${err.message}`);
       cb.checked = !cb.checked;
     }
   });
 }
 
 async function handleDelete(id, btn) {
-  const ok = await showConfirm('このスクリプトを削除しますか？');
+  const ok = await showConfirm('Delete this script?');
   if (!ok) return;
 
   btn.disabled = true;
   try {
     await send(MSG.DELETE_SCRIPT, { id });
     await loadScripts();
-    showToast('削除しました', false);
+    showToast('Deleted', false);
   } catch (err) {
-    showToast(`削除に失敗: ${err.message}`);
+    showToast(`Delete failed: ${err.message}`);
     btn.disabled = false;
   }
 }
@@ -93,18 +106,18 @@ async function handleDelete(id, btn) {
 async function handleEdit(id) {
   const s = scriptsCache.find((x) => x.id === id);
   if (!s) {
-    showToast('スクリプトが見つかりません');
+    showToast('Script not found');
     return;
   }
 
-  const code = await showEditDialog(s.code, `${s.name || '無題'} を編集`);
+  const code = await showEditDialog(s.code, `Edit ${s.name || 'Untitled'}`);
   if (code == null || code === s.code) return;
 
   try {
     await chrome.storage.local.set({ pendingEditId: id });
     await analyzeAndOpenConfirm(code);
   } catch (err) {
-    showToast(`編集の保存に失敗: ${err.message}`);
+    showToast(`Edit save failed: ${err.message}`);
   }
 }
 
@@ -120,7 +133,7 @@ async function handleExport(id) {
     });
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   } catch (err) {
-    showToast(`エクスポートに失敗: ${err.message}`);
+    showToast(`Export failed: ${err.message}`);
   }
 }
 
@@ -145,84 +158,182 @@ async function loadScripts() {
       li.className = 'script-item';
       const matches = (s.matches || []).join(', ') || '—';
       li.innerHTML = `
-        <h3>${escapeHtml(s.name || '無題')}</h3>
-        <p class="meta">${escapeHtml(matches)} · v${escapeHtml(s.version || '1.0')}</p>
-        <div class="actions">
+        <div class="script-header" data-action="toggle" data-id="${escapeAttr(s.id)}">
+          <button type="button" class="collapse-btn" data-id="${escapeAttr(s.id)}">
+            <svg class="v-icon" width="12" height="12" viewBox="0 0 12 12"><path d="M 1,3.5 L 6,8.5 L 11,3.5" /></svg>
+          </button>
+           <span class="script-name">${escapeHtml(s.name || 'Untitled')}</span>
           <label class="toggle">
             <input type="checkbox" data-id="${escapeAttr(s.id)}" ${s.enabled ? 'checked' : ''} />
-            有効
+            <span class="slider"></span>
           </label>
-          <button type="button" class="btn secondary" data-action="export" data-id="${escapeAttr(s.id)}">エクスポート</button>
-          <button type="button" class="btn secondary" data-action="edit" data-id="${escapeAttr(s.id)}">編集</button>
-          <button type="button" class="btn danger" data-action="delete" data-id="${escapeAttr(s.id)}">削除</button>
+        </div>
+        <div class="script-details" id="details-${escapeAttr(s.id)}">
+          <p class="meta">${escapeHtml(matches)} · v${escapeHtml(s.version || '1.0')}</p>
+          <div class="actions">
+            <button type="button" class="btn secondary" data-action="export" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+              Download
+            </button>
+            <button type="button" class="btn secondary" data-action="edit" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>
+              Edit
+            </button>
+            <button type="button" class="btn danger" data-action="delete" data-id="${escapeAttr(s.id)}">
+              <svg viewBox="0 -960 960 960" width="14" height="14" fill="currentColor"><path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/></svg>
+              Delete
+            </button>
+          </div>
         </div>
       `;
       list.appendChild(li);
     }
   } catch (err) {
-    showToast(`一覧の読み込みに失敗: ${err.message}`);
+    showToast(`Failed to load list: ${err.message}`);
     scriptsCache = [];
     list.innerHTML = '';
     empty?.classList.remove('hidden');
   }
 }
 
-async function loadSettings() {
-  try {
-    const { settings } = await send(MSG.GET_SETTINGS);
-    loadSettingsForm(settings);
-  } catch (err) {
-    showToast(`設定の読み込みに失敗: ${err.message}`);
+function initHeader() {
+  const ver = chrome.runtime.getManifest().version;
+  const el = $('#header-version');
+  if (el) el.textContent = `v${ver}`;
+
+  $('#btn-open-settings')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'settings/settings.html' });
+  });
+}
+
+function renderMarkdown(text) {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const codeBlocks = [];
+
+  let processed = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const langClass = lang ? ` class="lang-${escapeHtml(lang)}"` : '';
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre${langClass}><code>${code.trim()}</code></pre>`);
+    return `\x00CODEBLOCK${idx}\x00`;
+  });
+
+  const fenceMatch = processed.match(/```(\w*)\n([\s\S]*)$/);
+  if (fenceMatch) {
+    const [, lang, code] = fenceMatch;
+    const langClass = lang ? ` class="lang-${escapeHtml(lang)}"` : '';
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre${langClass}><code>${code}</code></pre>`);
+    processed = processed.slice(0, fenceMatch.index) + `\x00CODEBLOCK${idx}\x00`;
   }
+
+  const withInlineCode = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
+  const withBold = withInlineCode.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const withItalic = withBold.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  const withBreaks = withItalic.replace(/\n/g, '<br>');
+
+  return withBreaks.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => codeBlocks[+i]);
 }
 
 function initChat() {
   const form = $('#chat-form');
-  const messages = $('#chat-messages');
-  const status = $('#chat-status');
+  const output = $('#chat-output');
+  const status = $('#chat-status-bar');
+  const input = $('#chat-input');
+  const sendBtn = $('#btn-send');
+  const emptyState = $('#chat-empty-state');
+
+  function showIdle() {
+    emptyState?.classList.remove('hidden');
+    if (output) output.classList.add('hidden');
+  }
+
+  function showActive() {
+    emptyState?.classList.add('hidden');
+    if (output) {
+      output.innerHTML = '';
+      output.classList.remove('hidden');
+      output.classList.add('chat-output-streaming');
+    }
+  }
+
+  function autoResize() {
+    if (!input) return;
+    const prevHeight = input.style.height;
+    input.style.height = 'auto';
+    const newHeight = Math.min(input.scrollHeight, 120) + 'px';
+    if (prevHeight !== newHeight) {
+      input.style.height = newHeight;
+    }
+  }
+
+  function updateSendButton() {
+    if (!sendBtn || !input) return;
+    sendBtn.disabled = !input.value.trim();
+  }
+
+  input?.addEventListener('input', () => {
+    autoResize();
+    updateSendButton();
+  });
+
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form?.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  });
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const input = $('#chat-input');
     const prompt = input.value.trim();
-    if (!prompt) return;
+    if (!prompt || sendBtn?.disabled) return;
 
-    appendBubble(messages, 'user', prompt);
+    sendBtn.disabled = true;
     input.value = '';
-    status.textContent = '生成中...';
-    $('#btn-send').disabled = true;
+    updateSendButton();
+    autoResize();
+
+    status.textContent = 'Generating...';
+    showActive();
+
+    let fullText = '';
 
     try {
       const { settings } = await send(MSG.GET_SETTINGS);
-      status.textContent = 'ページを取得して生成中...';
-      const { code, pageContext } = await generateScript(prompt, settings);
-      const modeLabel = pageContext.mode === 'html' ? 'HTML全文' : 'DOMツリー';
-      const trunc = pageContext.truncated || pageContext.apiTruncated ? '（一部省略）' : '';
-      const minimal = pageContext.minimalFallback ? '・ページ情報なしで再試行済' : '';
-      appendBubble(
-        messages,
-        'assistant',
-        `スクリプトを生成しました（${modeLabel}${trunc}${minimal}）。権限確認画面を開きます...`
-      );
+      status.textContent = 'Fetching page and generating...';
+
+      const { code, pageContext } = await generateScriptStream(prompt, settings, (token) => {
+        fullText += token;
+        output.innerHTML = renderMarkdown(fullText);
+        output.scrollTop = output.scrollHeight;
+      });
+
+      output?.classList.remove('chat-output-streaming');
+      const modeLabel = pageContext.mode === 'html' ? 'Full HTML' : 'DOM Tree';
+      const trunc = pageContext.truncated || pageContext.apiTruncated ? ' (truncated)' : '';
+      const minimal = pageContext.minimalFallback ? '· retried without page context' : '';
+      status.textContent = `Script generated (${modeLabel}${trunc}${minimal}). Opening permission review...`;
       await analyzeAndOpenConfirm(code);
-      status.textContent = '権限確認画面で承認してください';
-      window.addEventListener('focus', () => loadScripts(), { once: true });
+      status.textContent = '';
     } catch (err) {
+      output?.classList.remove('chat-output-streaming');
       status.textContent = err.message;
-      appendBubble(messages, 'assistant', `エラー: ${err.message}`);
+      if (!fullText) {
+        output.innerHTML = `<div class="chat-output-error">${escapeHtml(err.message)}</div>`;
+      }
     } finally {
-      $('#btn-send').disabled = false;
+      output?.classList.remove('chat-output-streaming');
+      sendBtn.disabled = false;
+      updateSendButton();
     }
   });
-}
 
-function appendBubble(container, role, text) {
-  if (!container) return;
-  const div = document.createElement('div');
-  div.className = `chat-bubble ${role}`;
-  div.textContent = text;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  showIdle();
+  updateSendButton();
 }
 
 function initImport() {
@@ -241,17 +352,6 @@ function initImport() {
     }
   });
 
-  $('#btn-import-url')?.addEventListener('click', async () => {
-    const url = await showPrompt('インポートする .user.js の URL:');
-    if (!url) return;
-    try {
-      const res = await fetch(url);
-      const code = await res.text();
-      await analyzeAndOpenConfirm(code);
-    } catch (e) {
-      showToast(e.message);
-    }
-  });
 }
 
 function initSidePanel() {
@@ -272,7 +372,7 @@ function showReloadHint() {
   const p = document.createElement('p');
   p.id = 'reload-hint';
   p.className = 'status';
-  p.textContent = '反映するには対象ページを再読み込みしてください。';
+  p.textContent = 'Reload the target page for changes to take effect.';
   $('#view-list')?.prepend(p);
 }
 
@@ -290,14 +390,13 @@ function escapeAttr(s) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initHeader();
   initTabs();
   initScriptListDelegation();
-  initSettings(send);
   initChat();
   initImport();
   initSidePanel();
   loadScripts();
-  loadSettings();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.scripts) loadScripts();
