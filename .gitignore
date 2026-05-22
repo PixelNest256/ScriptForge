@@ -4,4 +4,5 @@ dist/
 .DS_Store
 .env
 .env.*
-ARCHITECTURE.md
+[A-Z]*.md
+!README.md
