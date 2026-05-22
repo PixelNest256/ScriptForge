@@ -84,44 +84,56 @@ export async function generateScriptStream(prompt, settings, onToken) {
     throw new Error('API key not set (can be empty for local APIs)');
   }
 
+  console.log('[SF] generateScriptStream start. model:', llm.llmModel, 'baseUrl:', llm.llmBaseUrl);
+
   const pageContext = await captureActiveTabPageContext(pageContextMode);
   const limited = limitPageContextForApi(pageContext);
+
+  console.log('[SF] pageContext captured. mode:', pageContext.mode, 'content length:', pageContext.content?.length);
 
   let userPrompt = buildPromptWithPageContext(prompt, limited);
   let usedMinimal = false;
 
   try {
+    console.log('[SF] calling chatCompletionStream...');
     const text = await chatCompletionStream({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       settings,
       onToken,
     });
+    console.log('[SF] chatCompletionStream SUCCESS. text length:', text.length);
     return finishGeneration(text, llm.llmModel, pageContext, limited);
   } catch (firstErr) {
+    console.log('[SF] chatCompletionStream FAILED:', firstErr.message, '| retryable:', isRetryableApiError(firstErr));
     if (!isRetryableApiError(firstErr)) throw firstErr;
 
     const smaller = limitPageContextForApi(pageContext, 10000);
     userPrompt = buildPromptWithPageContext(prompt, smaller);
 
     try {
+      console.log('[SF] fallback 1 (smaller context) with chatCompletion...');
       const text = await chatCompletion({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         settings,
       });
+      console.log('[SF] fallback 1 SUCCESS. text length:', text.length);
       onToken?.(text);
       return finishGeneration(text, llm.llmModel, pageContext, smaller);
     } catch (secondErr) {
+      console.log('[SF] fallback 1 FAILED:', secondErr.message, '| retryable:', isRetryableApiError(secondErr));
       if (!isRetryableApiError(secondErr)) throw secondErr;
 
       userPrompt = buildMinimalPagePrompt(prompt, pageContext);
       usedMinimal = true;
+      console.log('[SF] fallback 2 (minimal context) with chatCompletion...');
       const text = await chatCompletion({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         settings,
       });
+      console.log('[SF] fallback 2 SUCCESS. text length:', text.length);
       onToken?.(text);
       const result = finishGeneration(text, llm.llmModel, pageContext, pageContext);
       result.pageContext.minimalFallback = usedMinimal;
