@@ -20,17 +20,72 @@ function pngChunk(type, data) {
 }
 
 function createPng(size, r, g, b) {
+  const bgR = 15, bgG = 15, bgB = 20;
   const raw = [];
+  const half = size / 2;
+
+  const sqSize = 0.92;
+  const sqFeather = 0.04;
+  const diInner = 0.70;
+  const diFeather = 0.08;
+
+  function sqDist(cx, cy) {
+    const ax = Math.abs(cx);
+    const ay = Math.abs(cy);
+    return Math.pow(Math.pow(ax, 4) + Math.pow(ay, 4), 0.25) - sqSize;
+  }
+
   for (let y = 0; y < size; y++) {
     raw.push(0);
     for (let x = 0; x < size; x++) {
-      const cx = x - size / 2;
-      const cy = y - size / 2;
-      const d = Math.sqrt(cx * cx + cy * cy);
-      if (d < size * 0.4) {
-        raw.push(r, g, b, 255);
+      const cx = (x - half) / half;
+      const cy = (y - half) / half;
+
+      const sd = sqDist(cx, cy);
+
+      if (sd < -sqFeather) {
+        const dDist = Math.abs(cx) + Math.abs(cy);
+        if (dDist < diInner) {
+          const t = (cy + 1) / 2;
+          const light = 1.25 - t * 0.4;
+          const rr = Math.min(255, Math.round(r * light));
+          const gg = Math.min(255, Math.round(g * light));
+          const bb = Math.min(255, Math.round(b * light));
+          raw.push(rr, gg, bb, 255);
+        } else if (dDist < diInner + diFeather) {
+          const alpha = (diInner + diFeather - dDist) / diFeather;
+          const a255 = Math.round(Math.min(1, alpha) * 255);
+          const rr = Math.round((r * a255 + bgR * (255 - a255)) / 255);
+          const gg = Math.round((g * a255 + bgG * (255 - a255)) / 255);
+          const bb = Math.round((b * a255 + bgB * (255 - a255)) / 255);
+          raw.push(rr, gg, bb, 255);
+        } else {
+          raw.push(bgR, bgG, bgB, 255);
+        }
+      } else if (sd < sqFeather) {
+        const sqAlpha = Math.round(255 * (0.5 - sd / (2 * sqFeather)));
+        const dDist = Math.abs(cx) + Math.abs(cy);
+        let cR, cG, cB;
+        if (dDist < diInner) {
+          const t = (cy + 1) / 2;
+          const light = 1.25 - t * 0.4;
+          cR = Math.min(255, Math.round(r * light));
+          cG = Math.min(255, Math.round(g * light));
+          cB = Math.min(255, Math.round(b * light));
+        } else if (dDist < diInner + diFeather) {
+          const alpha = (diInner + diFeather - dDist) / diFeather;
+          const a255 = Math.round(Math.min(1, alpha) * 255);
+          cR = Math.round((r * a255 + bgR * (255 - a255)) / 255);
+          cG = Math.round((g * a255 + bgG * (255 - a255)) / 255);
+          cB = Math.round((b * a255 + bgB * (255 - a255)) / 255);
+        } else {
+          cR = bgR;
+          cG = bgG;
+          cB = bgB;
+        }
+        raw.push(cR, cG, cB, sqAlpha);
       } else {
-        raw.push(15, 15, 20, 255);
+        raw.push(0, 0, 0, 0);
       }
     }
   }
