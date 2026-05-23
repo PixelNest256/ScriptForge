@@ -61,8 +61,6 @@ When generating a script, the content of the current tab (DOM Tree or Full HTML,
 - Generated code passes static analysis and permission review before execution
 - Scripts run via `chrome.userScripts` (USER_SCRIPT world) — no `eval`/`new Function`, CSP-compliant
 - After enabling a script, a **page reload** may be required for changes to take effect
-- See [SECURITY.md](SECURITY.md) for details
-
 ## License
 
 MIT — see [LICENSE](LICENSE)
