@@ -6,3 +6,4 @@ dist/
 .env.*
 [A-Z]*.md
 !README.md
+extension.md
