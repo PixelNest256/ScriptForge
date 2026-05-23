@@ -39,7 +39,7 @@ async function buildAll() {
 }
 
 if (watch) {
-  const ctxs = await Promise.all(
+  await Promise.all(
     entries.map(({ in: entry, out }) =>
       esbuild.context({ ...common, entryPoints: [entry], outfile: out }).then((ctx) => {
         ctx.watch();

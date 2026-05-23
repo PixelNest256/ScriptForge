@@ -244,25 +244,17 @@ async function chatCompletionStream({ systemPrompt, userPrompt, settings, onToke
   const decoder = new TextDecoder();
   let buffer = "";
   let charsSinceYield = 0;
-  let totalLines = 0;
-  let matchedLines = 0;
-  let parseErrors = 0;
   function extractDelta(parsed) {
     return parsed.choices?.[0]?.delta?.content ?? parsed.choices?.[0]?.message?.content ?? parsed.choices?.[0]?.text ?? null;
   }
   while (true) {
     const { done, value } = await reader.read();
-    if (done) {
-      console.log("[SF] stream reader done. totalLines:", totalLines, "matchedLines:", matchedLines, "parseErrors:", parseErrors, "fullText.length:", fullText.length);
-      break;
-    }
+    if (done) break;
     const decoded = decoder.decode(value, { stream: true });
-    console.log("[SF] chunk received, length:", decoded.length, "first 80:", JSON.stringify(decoded.slice(0, 80)));
     buffer += decoded;
     const lines = buffer.split("\n");
     buffer = lines.pop() || "";
     for (const line of lines) {
-      totalLines++;
       const trimmed = line.trim();
       if (!trimmed) continue;
       let payload = trimmed;
@@ -270,41 +262,28 @@ async function chatCompletionStream({ systemPrompt, userPrompt, settings, onToke
       if (isData) {
         payload = payload.slice(5).trim();
       } else if (!payload.startsWith("{") && !payload.startsWith("[")) {
-        console.log("[SF] skipped line (not data/json):", JSON.stringify(trimmed.slice(0, 60)));
         continue;
       }
-      if (payload === "[DONE]") {
-        console.log("[SF] [DONE] received");
-        continue;
-      }
+      if (payload === "[DONE]") continue;
       try {
         const parsed = JSON.parse(payload);
         const delta = extractDelta(parsed);
         if (delta) {
-          matchedLines++;
-          const prevLen = fullText.length;
           fullText += delta;
-          console.log("[SF] delta:", JSON.stringify(delta), "| accumulated:", fullText.length, "chars");
           try {
             onToken?.(delta);
-          } catch (e) {
-            console.log("[SF] onToken error:", e);
+          } catch {
           }
           charsSinceYield += delta.length;
           if (charsSinceYield > 5) {
             charsSinceYield = 0;
             await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
           }
-        } else {
-          console.log("[SF] no delta in chunk:", JSON.stringify(payload).slice(0, 100));
         }
-      } catch (e) {
-        parseErrors++;
-        console.log("[SF] JSON parse error:", e.message, "payload:", JSON.stringify(payload).slice(0, 100));
+      } catch {
       }
     }
   }
-  console.log("[SF] streaming ended. fullText.trim():", !!fullText.trim(), "length:", fullText.length);
   if (!fullText.trim()) {
     throw new Error("API returned an empty response. Check model name and context length");
   }
@@ -494,49 +473,39 @@ async function generateScriptStream(prompt, settings, onToken) {
   if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
     throw new Error("API key not set (can be empty for local APIs)");
   }
-  console.log("[SF] generateScriptStream start. model:", llm.llmModel, "baseUrl:", llm.llmBaseUrl);
   const pageContext = await captureActiveTabPageContext(pageContextMode);
   const limited = limitPageContextForApi(pageContext);
-  console.log("[SF] pageContext captured. mode:", pageContext.mode, "content length:", pageContext.content?.length);
   let userPrompt = buildPromptWithPageContext(prompt, limited);
   let usedMinimal = false;
   try {
-    console.log("[SF] calling chatCompletionStream...");
     const text = await chatCompletionStream({
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       settings,
       onToken
     });
-    console.log("[SF] chatCompletionStream SUCCESS. text length:", text.length);
     return finishGeneration(text, llm.llmModel, pageContext, limited);
   } catch (firstErr) {
-    console.log("[SF] chatCompletionStream FAILED:", firstErr.message, "| retryable:", isRetryableApiError(firstErr));
     if (!isRetryableApiError(firstErr)) throw firstErr;
     const smaller = limitPageContextForApi(pageContext, 1e4);
     userPrompt = buildPromptWithPageContext(prompt, smaller);
     try {
-      console.log("[SF] fallback 1 (smaller context) with chatCompletion...");
       const text = await chatCompletion({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         settings
       });
-      console.log("[SF] fallback 1 SUCCESS. text length:", text.length);
       onToken?.(text);
       return finishGeneration(text, llm.llmModel, pageContext, smaller);
     } catch (secondErr) {
-      console.log("[SF] fallback 1 FAILED:", secondErr.message, "| retryable:", isRetryableApiError(secondErr));
       if (!isRetryableApiError(secondErr)) throw secondErr;
       userPrompt = buildMinimalPagePrompt(prompt, pageContext);
       usedMinimal = true;
-      console.log("[SF] fallback 2 (minimal context) with chatCompletion...");
       const text = await chatCompletion({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
         settings
       });
-      console.log("[SF] fallback 2 SUCCESS. text length:", text.length);
       onToken?.(text);
       const result = finishGeneration(text, llm.llmModel, pageContext, pageContext);
       result.pageContext.minimalFallback = usedMinimal;
@@ -962,22 +931,15 @@ function initChat() {
     status.textContent = "Generating...";
     showActive();
     let fullText = "";
-    let callbackCount = 0;
     try {
       const { settings } = await send(MSG.GET_SETTINGS);
-      console.log("[SF] settings received. baseUrl:", settings.llmBaseUrl, "model:", settings.llmModel);
       status.textContent = "Fetching page and generating...";
       const { code, pageContext } = await generateScriptStream(prompt, settings, (token) => {
-        callbackCount++;
-        if (callbackCount <= 3 || callbackCount % 10 === 0) {
-          console.log("[SF] onToken #" + callbackCount + " token len:", token.length, "total len:", fullText.length + token.length);
-        }
         fullText += token;
         const html = renderMarkdown(fullText);
         output.innerHTML = html;
         output.scrollTop = output.scrollHeight;
       });
-      console.log("[SF] generateScriptStream done. onToken called", callbackCount, "times");
       output?.classList.remove("chat-output-streaming");
       const modeLabel = pageContext.mode === "html" ? "Full HTML" : "DOM Tree";
       const trunc = pageContext.truncated || pageContext.apiTruncated ? " (truncated)" : "";

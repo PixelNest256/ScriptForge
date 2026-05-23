@@ -1,6 +1,3 @@
-/**
- * Lightweight lint checks for generated userscript body (runs in extension).
- */
 export function lintGeneratedBody(body) {
   const warnings = [];
   const errors = [];

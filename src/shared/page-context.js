@@ -3,7 +3,6 @@ import { capturePageContextInPage } from './page-capture-fn.js';
 export const PAGE_CONTEXT_HTML = 'html';
 export const PAGE_CONTEXT_DOM = 'dom';
 
-/** Page content limit when sending to API (characters) */
 export const API_CONTENT_LIMIT = {
   dom: 28000,
   html: 45000,
@@ -41,7 +40,6 @@ export async function captureActiveTabPageContext(mode) {
   return result;
 }
 
-/** Limit page content for API transmission */
 export function limitPageContextForApi(pageContext, maxChars) {
   const defaultMax =
     maxChars ?? API_CONTENT_LIMIT[pageContext.mode] ?? API_CONTENT_LIMIT.dom;

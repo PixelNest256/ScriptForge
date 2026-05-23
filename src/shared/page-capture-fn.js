@@ -1,6 +1,3 @@
-/**
- * Function executed inside the page via executeScript (no external scope, no imports)
- */
 export function capturePageContextInPage(mode) {
   const MAX_HTML = 60000;
   const MAX_DOM_NODES = 450;

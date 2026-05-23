@@ -8,7 +8,6 @@ export async function sha256(text) {
   return `sha256:${hex}`;
 }
 
-/** Normalize line endings before hash calculation (prevent Windows CRLF issues) */
 export function normalizeScriptBody(body) {
   return String(body).replace(/\r\n/g, '\n').trim();
 }

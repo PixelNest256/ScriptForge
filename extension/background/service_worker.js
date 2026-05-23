@@ -6554,14 +6554,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   handleMessage(message).then((result) => sendResponse(result ?? { ok: true })).catch((err) => {
-    console.error("[ScriptForge]", err);
     sendResponse({ error: err?.message || String(err) });
   });
   return true;
-});
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === "complete" && tab.url) {
-  }
 });
 async function injectScriptsIntoTab(tabId, scripts) {
   for (const script of scripts) {
@@ -6577,9 +6572,7 @@ async function injectScriptsIntoTab(tabId, scripts) {
         args: [script.code],
         world: "MAIN"
       });
-      console.log(`[ScriptForge] injected script ${script.id} into tab ${tabId}`);
-    } catch (err) {
-      console.error(`[ScriptForge] failed to inject script ${script.id}:`, err);
+    } catch {
     }
   }
 }

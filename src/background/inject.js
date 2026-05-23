@@ -7,8 +7,7 @@ import {
   embedHash,
 } from '../shared/hash.js';
 import { getScripts, saveScript } from '../shared/storage.js';
-import { normalizeMatchPatterns } from '../shared/match.js';
-import { urlMatchesAny } from '../shared/match.js';
+import { normalizeMatchPatterns, urlMatchesAny } from '../shared/match.js';
 
 const SCRIPT_ID_PREFIX = 'scriptforge-';
 
@@ -24,7 +23,6 @@ function getMatchPatterns(script) {
   return patterns.length ? patterns : ['<all_urls>'];
 }
 
-/** Wrap userscript body for content script execution */
 export function wrapUserScriptBody(body) {
   const trimmed = body.trim();
   if (/^\(?\s*function/.test(trimmed) || trimmed.startsWith('(function')) {
@@ -33,10 +31,6 @@ export function wrapUserScriptBody(body) {
   return `(function () {\n  'use strict';\n${body}\n})();`;
 }
 
-/**
- * Return enabled scripts matching the given URL.
- * Uses content script bridge mode, no API registration needed.
- */
 export async function getMatchingScriptsForUrl(url) {
   const scripts = await getScripts();
   const result = [];
@@ -60,13 +54,10 @@ export async function getMatchingScriptsForUrl(url) {
   return result;
 }
 
-/** For compatibility: content script bridge mode, resolves immediately */
 export async function syncAllUserScripts() {
-  console.log('[ScriptForge] syncAllUserScripts: content script bridge mode (no API registration needed)');
   return { registered: 0, cleared: 0 };
 }
 
-/** Recalculate and fix hash offset by CRLF differences */
 async function tryRepairScriptHash(script) {
   const code = normalizeUserscriptCode(script.code);
   const body = bodyForHash(code);
@@ -78,7 +69,6 @@ async function tryRepairScriptHash(script) {
     hash,
   };
   await saveScript(repaired);
-  console.info(`[ScriptForge] Repaired hash for script ${script.id}`);
   return repaired;
 }
 
@@ -93,8 +83,6 @@ export async function injectScriptsForTab(tabId, url) {
         code: script.code,
         scriptId: script.id,
       });
-    } catch {
-      // Tab may not have content script loaded yet
-    }
+    } catch {}
   }
 }

@@ -1,5 +1,3 @@
-/** OpenAI-compatible Chat Completions API client */
-
 export const LLM_PRESETS = [
   {
     id: 'openai',
@@ -40,7 +38,6 @@ export const DEFAULT_LLM = {
   pageContextMode: 'dom',
 };
 
-/** Normalize settings, including migration from old Anthropic config */
 export function normalizeLlmSettings(settings = {}) {
   const baseUrl = (
     settings.llmBaseUrl ||
@@ -278,9 +275,6 @@ export async function chatCompletionStream({ systemPrompt, userPrompt, settings,
   const decoder = new TextDecoder();
   let buffer = '';
   let charsSinceYield = 0;
-  let totalLines = 0;
-  let matchedLines = 0;
-  let parseErrors = 0;
 
   function extractDelta(parsed) {
     return (
@@ -293,19 +287,14 @@ export async function chatCompletionStream({ systemPrompt, userPrompt, settings,
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) {
-      console.log('[SF] stream reader done. totalLines:', totalLines, 'matchedLines:', matchedLines, 'parseErrors:', parseErrors, 'fullText.length:', fullText.length);
-      break;
-    }
+    if (done) break;
 
     const decoded = decoder.decode(value, { stream: true });
-    console.log('[SF] chunk received, length:', decoded.length, 'first 80:', JSON.stringify(decoded.slice(0, 80)));
     buffer += decoded;
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
     for (const line of lines) {
-      totalLines++;
       const trimmed = line.trim();
       if (!trimmed) continue;
 
@@ -315,40 +304,26 @@ export async function chatCompletionStream({ systemPrompt, userPrompt, settings,
       if (isData) {
         payload = payload.slice(5).trim();
       } else if (!payload.startsWith('{') && !payload.startsWith('[')) {
-        console.log('[SF] skipped line (not data/json):', JSON.stringify(trimmed.slice(0, 60)));
         continue;
       }
 
-      if (payload === '[DONE]') {
-        console.log('[SF] [DONE] received');
-        continue;
-      }
+      if (payload === '[DONE]') continue;
 
       try {
         const parsed = JSON.parse(payload);
         const delta = extractDelta(parsed);
         if (delta) {
-          matchedLines++;
-          const prevLen = fullText.length;
           fullText += delta;
-          console.log('[SF] delta:', JSON.stringify(delta), '| accumulated:', fullText.length, 'chars');
-          try { onToken?.(delta); } catch (e) { console.log('[SF] onToken error:', e); }
+          try { onToken?.(delta); } catch {}
           charsSinceYield += delta.length;
           if (charsSinceYield > 5) {
             charsSinceYield = 0;
             await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
           }
-        } else {
-          console.log('[SF] no delta in chunk:', JSON.stringify(payload).slice(0, 100));
         }
-      } catch (e) {
-        parseErrors++;
-        console.log('[SF] JSON parse error:', e.message, 'payload:', JSON.stringify(payload).slice(0, 100));
-      }
+      } catch {}
     }
   }
-
-  console.log('[SF] streaming ended. fullText.trim():', !!fullText.trim(), 'length:', fullText.length);
 
   if (!fullText.trim()) {
     throw new Error('API returned an empty response. Check model name and context length');

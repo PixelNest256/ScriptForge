@@ -301,25 +301,17 @@ function initChat() {
     showActive();
 
     let fullText = '';
-    let callbackCount = 0;
 
     try {
       const { settings } = await send(MSG.GET_SETTINGS);
-      console.log('[SF] settings received. baseUrl:', settings.llmBaseUrl, 'model:', settings.llmModel);
       status.textContent = 'Fetching page and generating...';
 
       const { code, pageContext } = await generateScriptStream(prompt, settings, (token) => {
-        callbackCount++;
-        if (callbackCount <= 3 || callbackCount % 10 === 0) {
-          console.log('[SF] onToken #' + callbackCount + ' token len:', token.length, 'total len:', (fullText.length + token.length));
-        }
         fullText += token;
         const html = renderMarkdown(fullText);
         output.innerHTML = html;
         output.scrollTop = output.scrollHeight;
       });
-      console.log('[SF] generateScriptStream done. onToken called', callbackCount, 'times');
-
       output?.classList.remove('chat-output-streaming');
       const modeLabel = pageContext.mode === 'html' ? 'Full HTML' : 'DOM Tree';
       const trunc = pageContext.truncated || pageContext.apiTruncated ? ' (truncated)' : '';

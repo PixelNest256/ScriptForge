@@ -25,7 +25,6 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Script request from content script
   if (message.type === SCRIPTFORGE_REQUEST && sender.tab) {
     getMatchingScriptsForUrl(message.url)
       .then((scripts) => {
@@ -44,17 +43,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message)
     .then((result) => sendResponse(result ?? { ok: true }))
     .catch((err) => {
-      console.error('[ScriptForge]', err);
       sendResponse({ error: err?.message || String(err) });
     });
   return true;
-});
-
-// Inject scripts on tab load (via content script bridge)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    // Content script will request scripts, so we don't need to do anything here
-  }
 });
 
 async function injectScriptsIntoTab(tabId, scripts) {
@@ -71,10 +62,7 @@ async function injectScriptsIntoTab(tabId, scripts) {
         args: [script.code],
         world: 'MAIN',
       });
-      console.log(`[ScriptForge] injected script ${script.id} into tab ${tabId}`);
-    } catch (err) {
-      console.error(`[ScriptForge] failed to inject script ${script.id}:`, err);
-    }
+    } catch {}
   }
 }
 

@@ -102,18 +102,13 @@ export function initSettings(send) {
   if (presetsEl) renderSettingsPresets(presetsEl);
 
   const saveBtn = $('#btn-save-settings');
-  console.log('[ScriptForge] save button found:', !!saveBtn);
   saveBtn?.addEventListener('click', async (e) => {
-    console.log('[ScriptForge] save button clicked');
     e.preventDefault();
     try {
       const settings = readSettingsForm();
-      console.log('[ScriptForge] sending settings:', settings);
       await send(MSG.SAVE_SETTINGS, { settings });
-      console.log('[ScriptForge] settings saved successfully');
       $('#settings-status').textContent = 'Saved';
     } catch (err) {
-      console.error('[ScriptForge] save settings error:', err);
       $('#settings-status').textContent = `Save failed: ${err.message}`;
     }
   });
