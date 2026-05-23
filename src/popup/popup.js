@@ -14,6 +14,7 @@ function showView(name) {
   $$('.view').forEach((v) => v.classList.add('hidden'));
   $(`#view-${name}`)?.classList.remove('hidden');
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
+  dismissReloadHint();
 }
 
 function initTabs({ resetChat } = {}) {
@@ -436,6 +437,11 @@ function showReloadHint() {
   p.className = 'status';
   p.textContent = 'Reload the target page for changes to take effect.';
   $('#view-list')?.prepend(p);
+}
+
+function dismissReloadHint() {
+  const el = $('#reload-hint');
+  if (el) el.remove();
 }
 
 function escapeHtml(s) {
