@@ -15,7 +15,7 @@ Think step by step, then output a complete Tampermonkey-compatible userscript in
 Requirements:
 - First, explain your approach briefly in natural language (1-3 sentences).
 - Then output the userscript code inside \`\`\`javascript ... \`\`\` fences.
-- The script must start with // ==UserScript== block containing @name, @description, @match (at least one), @version
+- The script must start with // ==UserScript== block containing @name (format: one emoji followed by a space and the name, e.g. 🎨 Page Colorizer), @description, @match (at least one), @version
 - End metadata with // ==/UserScript==
 - Body must be an IIFE: (function () { 'use strict'; ... })();
 - NEVER use eval, new Function, dynamic import(), or string arguments to setTimeout/setInterval

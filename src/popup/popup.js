@@ -16,11 +16,14 @@ function showView(name) {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
 }
 
-function initTabs() {
+function initTabs({ resetChat } = {}) {
   $$('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       showView(tab.dataset.view);
-      if (tab.dataset.view === 'chat') updatePageContextHint();
+      if (tab.dataset.view === 'chat') {
+        updatePageContextHint();
+        resetChat?.();
+      }
     });
   });
 }
@@ -245,16 +248,32 @@ function initChat() {
   const input = $('#chat-input');
   const sendBtn = $('#btn-send');
   const emptyState = $('#chat-empty-state');
+  const contextHint = $('#page-context-hint');
+
+  const inputArea = form?.closest('.chat-input-area');
+  const resetArea = document.createElement('div');
+  resetArea.className = 'chat-reset-area hidden';
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.id = 'btn-reset';
+  resetBtn.className = 'btn secondary reset-btn';
+  resetBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Create new';
+  resetArea.appendChild(resetBtn);
+  form?.parentNode?.insertBefore(resetArea, form.nextSibling);
+
+  let assistantContainer = null;
 
   function showIdle() {
     emptyState?.classList.remove('hidden');
-    if (output) output.classList.add('hidden');
+    if (output) {
+      output.innerHTML = '';
+      output.classList.add('hidden');
+    }
   }
 
   function showActive() {
     emptyState?.classList.add('hidden');
     if (output) {
-      output.innerHTML = '';
       output.classList.remove('hidden');
       output.classList.add('chat-output-streaming');
     }
@@ -297,8 +316,24 @@ function initChat() {
     updateSendButton();
     autoResize();
 
-    status.textContent = 'Generating...';
     showActive();
+
+    const userBubble = document.createElement('div');
+    userBubble.className = 'chat-bubble user';
+    userBubble.textContent = prompt;
+    output.appendChild(userBubble);
+    output.scrollTop = output.scrollHeight;
+
+    assistantContainer = document.createElement('div');
+    assistantContainer.className = 'chat-response';
+    output.appendChild(assistantContainer);
+    output.scrollTop = output.scrollHeight;
+
+    form?.classList.add('hidden');
+    contextHint?.classList.add('hidden');
+    resetArea.classList.remove('hidden');
+
+    status.textContent = 'Generating...';
 
     let fullText = '';
 
@@ -309,8 +344,10 @@ function initChat() {
       const { code, pageContext } = await generateScriptStream(prompt, settings, (token) => {
         fullText += token;
         const html = renderMarkdown(fullText);
-        output.innerHTML = html;
-        output.scrollTop = output.scrollHeight;
+        if (assistantContainer) {
+          assistantContainer.innerHTML = html;
+          output.scrollTop = output.scrollHeight;
+        }
       });
       output?.classList.remove('chat-output-streaming');
       const modeLabel = pageContext.mode === 'html' ? 'Full HTML' : 'DOM Tree';
@@ -322,7 +359,9 @@ function initChat() {
     } catch (err) {
       output?.classList.remove('chat-output-streaming');
       status.textContent = err.message;
-      if (!fullText) {
+      if (assistantContainer) {
+        assistantContainer.innerHTML = `<div class="chat-output-error">${escapeHtml(err.message)}</div>`;
+      } else {
         output.innerHTML = `<div class="chat-output-error">${escapeHtml(err.message)}</div>`;
       }
     } finally {
@@ -332,8 +371,31 @@ function initChat() {
     }
   });
 
+  function resetChat() {
+    if (output) {
+      output.innerHTML = '';
+      output.classList.add('hidden');
+      output.classList.remove('chat-output-streaming');
+    }
+    emptyState?.classList.remove('hidden');
+    form?.classList.remove('hidden');
+    contextHint?.classList.remove('hidden');
+    resetArea.classList.add('hidden');
+    if (status) status.textContent = '';
+    if (input) {
+      input.value = '';
+      input.style.height = 'auto';
+    }
+    assistantContainer = null;
+    updateSendButton();
+  }
+
+  resetBtn.addEventListener('click', resetChat);
+
   showIdle();
   updateSendButton();
+
+  return { resetChat };
 }
 
 function initImport() {
@@ -391,9 +453,9 @@ function escapeAttr(s) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initHeader();
-  initTabs();
+  const chatControl = initChat();
+  initTabs(chatControl);
   initScriptListDelegation();
-  initChat();
   initImport();
   initSidePanel();
   loadScripts();
