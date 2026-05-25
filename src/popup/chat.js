@@ -29,10 +29,6 @@ export async function generateScript(prompt, settings) {
   const llm = normalizeLlmSettings(settings);
   const { pageContextMode } = normalizePageContextSettings(settings);
 
-  if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
-    throw new Error('API key not set (can be empty for local APIs)');
-  }
-
   const pageContext = await captureActiveTabPageContext(pageContextMode);
   const limited = limitPageContextForApi(pageContext);
 
@@ -79,10 +75,6 @@ export async function generateScript(prompt, settings) {
 export async function generateScriptStream(prompt, settings, onToken) {
   const llm = normalizeLlmSettings(settings);
   const { pageContextMode } = normalizePageContextSettings(settings);
-
-  if (!llm.llmApiKey && !isLocalBaseUrl(llm.llmBaseUrl)) {
-    throw new Error('API key not set (can be empty for local APIs)');
-  }
 
   const pageContext = await captureActiveTabPageContext(pageContextMode);
   const limited = limitPageContextForApi(pageContext);
